@@ -8,14 +8,17 @@ import { getNodeDef } from '../nodes/catalog';
 import type { ForgeEdge, ForgeNode, ForgeNodeData } from '../types';
 
 export type EdgeStyle = 'smoothstep' | 'straight' | 'bezier' | 'step';
+export type AccentColor = 'amber' | 'red' | 'blue' | 'green' | 'purple';
 
 interface GraphStore {
   projectName: string;
   nodes: ForgeNode[];
   edges: ForgeEdge[];
   edgeStyle: EdgeStyle;
+  accentColor: AccentColor;
   setProjectName: (name: string) => void;
   setEdgeStyle: (style: EdgeStyle) => void;
+  setAccentColor: (color: AccentColor) => void;
   onNodesChange: (changes: NodeChange<ForgeNode>[]) => void;
   onEdgesChange: (changes: EdgeChange<ForgeEdge>[]) => void;
   onConnect: (connection: Connection) => void;
@@ -49,9 +52,11 @@ export const useGraphStore = create<GraphStore>()(
       nodes: [],
       edges: [],
       edgeStyle: 'smoothstep' as EdgeStyle,
+      accentColor: 'amber' as AccentColor,
 
       setProjectName: (name) => set({ projectName: name }),
       setEdgeStyle: (style) => set({ edgeStyle: style }),
+      setAccentColor: (color) => set({ accentColor: color }),
 
       onNodesChange: (changes) => {
         set({ nodes: applyNodeChanges(changes, get().nodes) });
@@ -239,6 +244,7 @@ export const useGraphStore = create<GraphStore>()(
         nodes: state.nodes,
         edges: state.edges,
         edgeStyle: state.edgeStyle,
+        accentColor: state.accentColor,
       }),
     },
   ),

@@ -18,5 +18,5 @@ export function getOutputPorts(
   edges: ForgeEdge[],
 ): PortDef[] {
   void edges;
-  return resolveOutputPorts(def, node.data.artifacts);
+  return resolveOutputPorts(def, node.data.artifacts, node.data.params);
 }

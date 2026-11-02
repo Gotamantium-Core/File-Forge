@@ -125,31 +125,7 @@ function Segmented({
   );
 }
 
-function PageExpression({
-  label,
-  hint,
-  value,
-  placeholder,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  value: string;
-  placeholder: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <Field label={label} hint={hint}>
-      <input
-        type="text"
-        value={value}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-        className={`${inputClass} font-mono placeholder:text-zinc-700`}
-      />
-    </Field>
-  );
-}
+
 
 function ArtifactRow({
   artifact,
@@ -583,104 +559,120 @@ function MergePdfsParams() {
   );
 }
 
+function splitRangeToPair(range: string): [string, string] {
+  const trimmed = range.trim();
+  if (!trimmed) return ['', ''];
+  if (trimmed.includes('-')) {
+    const [start, end] = trimmed.split('-');
+    return [(start ?? '').trim(), (end ?? '').trim()];
+  }
+  return [trimmed, trimmed];
+}
+
+function pairToSplitRange(start: string, end: string): string {
+  const s = start.trim();
+  const e = end.trim();
+  if (!s) return '';
+  if (!e || e === s) return s;
+  return `${s}-${e}`;
+}
+
 function SplitPdfParams({ node }: { node: ForgeNode }) {
   const updateNodeParams = useGraphStore((state) => state.updateNodeParams);
   const params = node.data.params;
-  const mode = typeof params.mode === 'string' ? params.mode : 'chunks';
-  const chunkSize =
-    typeof params.chunkSize === 'number' ? params.chunkSize : 1;
   const ranges = typeof params.ranges === 'string' ? params.ranges : '';
   const splitParts = Array.isArray(params.splitParts)
     ? (params.splitParts as string[])
     : [];
 
   const parts = splitParts.length > 0 ? splitParts : ranges ? [ranges] : [''];
-  const setParts = (next: string[]) => {
+  const pairs = parts.map(splitRangeToPair);
+  const setPairs = (next: [string, string][]) => {
+    const nextParts = next.map(([s, e]) => pairToSplitRange(s, e));
     updateNodeParams(node.id, {
-      splitParts: next,
-      ranges: next.join(','),
+      mode: 'ranges',
+      splitParts: nextParts,
+      ranges: nextParts.join(','),
     });
   };
 
   return (
-    <Section title="Split mode">
-      <div className="mt-2.5">
-        <Segmented
-          value={mode}
-          onChange={(value) => updateNodeParams(node.id, { mode: value })}
-          options={[
-            { value: 'chunks', label: 'Every N pages' },
-            { value: 'ranges', label: 'Custom parts' },
-          ]}
-        />
-      </div>
-
-      <div className="mt-2.5">
-        {mode === 'chunks' ? (
-          <Field label="Pages per file" hint="1–5000">
-            <input
-              type="number"
-              min={1}
-              max={5000}
-              step={1}
-              value={chunkSize}
-              onChange={(event) => {
-                const next = Number(event.target.value);
-                updateNodeParams(node.id, {
-                  chunkSize: Number.isFinite(next)
-                    ? Math.min(5000, Math.max(1, Math.round(next)))
-                    : 1,
-                });
-              }}
-              className={`${inputClass} font-mono`}
-            />
-          </Field>
-        ) : (
-          <div className="space-y-2">
-            {parts.map((part, index) => (
-              <div key={index} className="flex items-center gap-1.5">
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    value={part}
-                    placeholder="1-2"
-                    onChange={(event) => {
-                      const next = [...parts];
-                      next[index] = event.target.value;
-                      setParts(next);
-                    }}
-                    className={`${inputClass} font-mono placeholder:text-zinc-700`}
-                  />
-                </div>
-                {parts.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => setParts(parts.filter((_, i) => i !== index))}
-                    className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-zinc-600 transition-colors hover:bg-rose-400/10 hover:text-rose-300"
-                    title="Remove part"
-                  >
-                    <X size={12} />
-                  </button>
-                )}
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={() => setParts([...parts, ''])}
-              className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-2 py-1.5 text-[10px] text-zinc-400 transition-colors hover:border-white/[0.14] hover:text-zinc-300"
-            >
-              Add part
-            </button>
+    <Section title="Custom parts">
+      <div className="mt-2.5 space-y-2">
+        {pairs.map((pair, index) => (
+          <div key={index} className="flex items-center gap-1.5">
+            <div className="flex-1">
+              <input
+                type="number"
+                min={1}
+                value={pair[0]}
+                placeholder="Start"
+                onChange={(event) => {
+                  const next = [...pairs];
+                  next[index] = [event.target.value, pair[1]];
+                  setPairs(next);
+                }}
+                className={`${inputClass} font-mono placeholder:text-zinc-700`}
+              />
+            </div>
+            <span className="text-[10px] text-zinc-600">–</span>
+            <div className="flex-1">
+              <input
+                type="number"
+                min={1}
+                value={pair[1]}
+                placeholder="End"
+                onChange={(event) => {
+                  const next = [...pairs];
+                  next[index] = [pair[0], event.target.value];
+                  setPairs(next);
+                }}
+                className={`${inputClass} font-mono placeholder:text-zinc-700`}
+              />
+            </div>
+            {pairs.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setPairs(pairs.filter((_, i) => i !== index))}
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-zinc-600 transition-colors hover:bg-rose-400/10 hover:text-rose-300"
+                title="Remove part"
+              >
+                <X size={12} />
+              </button>
+            )}
           </div>
-        )}
+        ))}
+        <button
+          type="button"
+          onClick={() => setPairs([...pairs, ['', '']])}
+          className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-2 py-1.5 text-[10px] text-zinc-400 transition-colors hover:border-white/[0.14] hover:text-zinc-300"
+        >
+          Add interval
+        </button>
       </div>
 
       <p className="mt-2 text-[9px] leading-relaxed text-zinc-600">
-        {mode === 'chunks'
-          ? 'Creates one PDF per group of pages, in page order.'
-          : 'Each part becomes its own output PDF. Pages cannot appear in more than one part.'}
+        Each part becomes its own output PDF. Pages cannot appear in more than one part.
       </p>
     </Section>
+  );
+}
+
+function PagesInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <input
+      type="text"
+      value={value}
+      placeholder="1, 3-5"
+      onChange={(event) => onChange(event.target.value)}
+      className={`${inputClass} font-mono placeholder:text-zinc-700`}
+    />
   );
 }
 
@@ -724,13 +716,9 @@ function RotatePdfParams({ node }: { node: ForgeNode }) {
 
       {scope === 'custom' && (
         <div className="mt-2.5">
-          <PageExpression
-            label="Pages"
-            hint="1-based, e.g. 1, 3-5"
-            value={pages}
-            placeholder="1, 3-5"
-            onChange={(value) => updateNodeParams(node.id, { pages: value })}
-          />
+          <Field label="Pages" hint="1-based, e.g. 1, 3-5">
+            <PagesInput value={pages} onChange={(value) => updateNodeParams(node.id, { pages: value })} />
+          </Field>
         </div>
       )}
     </Section>
@@ -747,23 +735,37 @@ function PageSelectionParams({
   const updateNodeParams = useGraphStore((state) => state.updateNodeParams);
   const params = node.data.params;
   const pages = typeof params.pages === 'string' ? params.pages : '1';
-  const isExtract = mode === 'extract';
+
+  if (mode === 'delete') {
+    return (
+      <Section title="Pages to remove">
+        <div className="mt-2.5">
+          <Field label="Pages" hint="1-based, e.g. 1, 3-5">
+            <input
+              type="text"
+              value={pages}
+              placeholder="1, 3-5"
+              onChange={(event) => updateNodeParams(node.id, { pages: event.target.value })}
+              className={`${inputClass} font-mono placeholder:text-zinc-700`}
+            />
+          </Field>
+        </div>
+        <p className="mt-2 text-[9px] leading-relaxed text-zinc-600">
+          Remaining pages keep their original order. At least one page must stay.
+        </p>
+      </Section>
+    );
+  }
 
   return (
-    <Section title={isExtract ? 'Pages to keep' : 'Pages to remove'}>
+    <Section title="Pages to keep">
       <div className="mt-2.5">
-        <PageExpression
-          label="Pages"
-          hint="1-based, e.g. 1, 3-5"
-          value={pages}
-          placeholder="1, 3-5"
-          onChange={(value) => updateNodeParams(node.id, { pages: value })}
-        />
+        <Field label="Pages" hint="1-based, e.g. 1, 3-5">
+          <PagesInput value={pages} onChange={(value) => updateNodeParams(node.id, { pages: value })} />
+        </Field>
       </div>
       <p className="mt-2 text-[9px] leading-relaxed text-zinc-600">
-        {isExtract
-          ? 'Extracted pages keep the order you enter, with duplicates removed.'
-          : 'Remaining pages keep their original order. At least one page must stay.'}
+        Extracted pages keep the order you enter, with duplicates removed.
       </p>
     </Section>
   );
@@ -777,13 +779,15 @@ function ReorderPdfParams({ node }: { node: ForgeNode }) {
   return (
     <Section title="Page order">
       <div className="mt-2.5">
-        <PageExpression
-          label="New order"
-          hint="every page once"
-          value={order}
-          placeholder="3, 1, 2"
-          onChange={(value) => updateNodeParams(node.id, { order: value })}
-        />
+        <Field label="New order" hint="every page once">
+          <input
+            type="text"
+            value={order}
+            placeholder="3, 1, 2"
+            onChange={(event) => updateNodeParams(node.id, { order: event.target.value })}
+            className={`${inputClass} font-mono placeholder:text-zinc-700`}
+          />
+        </Field>
       </div>
       <p className="mt-2 text-[9px] leading-relaxed text-zinc-600">
         List every page exactly once in its new position. Ranges expand in place, so

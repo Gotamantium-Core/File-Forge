@@ -13,6 +13,11 @@
   --color-forge-600: #2c2c3c;
 }
 
+:root {
+  --accent: 251 191 36;
+  --accent-strong: 245 158 11;
+}
+
 html,
 body,
 #root {
@@ -30,7 +35,7 @@ body {
 }
 
 ::selection {
-  background: rgba(251, 191, 36, 0.25);
+  background: rgba(var(--accent), 0.25);
   color: #fff;
 }
 
@@ -66,7 +71,7 @@ body {
   --xy-controls-button-background-color-default: #111118;
   --xy-controls-button-background-color-hover-default: #1b1b26;
   --xy-controls-button-color-default: #a1a1aa;
-  --xy-controls-button-color-hover-default: #fbbf24;
+  --xy-controls-button-color-hover-default: rgb(var(--accent));
   --xy-controls-button-border-color-default: rgba(255, 255, 255, 0.06);
   --xy-controls-box-shadow-default: none;
   --xy-attribution-background-color: transparent;
@@ -128,7 +133,7 @@ body {
 
 .react-flow__handle.forge-handle:hover,
 .react-flow__handle.forge-handle.connectionindicator:hover {
-  box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.14);
+  box-shadow: 0 0 0 4px rgba(var(--accent), 0.14);
 }
 
 .react-flow__edge-path {
@@ -136,16 +141,16 @@ body {
 }
 
 .react-flow__edge.selected .react-flow__edge-path {
-  stroke: #fbbf24;
+  stroke: rgb(var(--accent));
 }
 
 .react-flow__selection {
-  background: rgba(251, 191, 36, 0.05);
-  border: 1px solid rgba(251, 191, 36, 0.35);
+  background: rgba(var(--accent), 0.08);
+  border: 1px solid rgba(var(--accent), 0.6);
 }
 
 .react-flow__nodesselection-rect {
-  background: rgba(251, 191, 36, 0.04);
-  border: 1px solid rgba(251, 191, 36, 0.35);
+  background: rgba(var(--accent), 0.06);
+  border: 1px solid rgba(var(--accent), 0.6);
   border-radius: 8px;
 }

@@ -311,7 +311,7 @@ export function Inspector() {
           Inspector
         </h2>
         {selected.length > 0 && (
-          <span className="rounded bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-300">
+          <span className="rounded bg-[rgb(var(--accent)/0.12)] px-1.5 py-0.5 text-[9px] font-medium text-[rgb(var(--accent))]">
             {selected.length} selected
           </span>
         )}

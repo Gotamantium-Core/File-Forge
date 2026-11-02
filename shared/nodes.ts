@@ -180,6 +180,7 @@ export function isPortHandle(portId: string, handle?: string | null): boolean {
 export function resolveOutputPorts(
   spec: NodeSpec,
   artifacts?: ArtifactRef[],
+  params?: Record<string, unknown>,
 ): PortDef[] {
   const fileInput = FILE_INPUT_TYPES[spec.type];
   if (fileInput) {
@@ -188,6 +189,31 @@ export function resolveOutputPorts(
       label: artifact.name,
       type: fileInput.type,
       artifactId: artifact.id,
+      index,
+    }));
+  }
+
+  if (spec.type === 'split-pdf') {
+    const splitParts = Array.isArray(params?.splitParts)
+      ? (params.splitParts as string[])
+      : typeof params?.ranges === 'string' && params.ranges
+        ? [params.ranges]
+        : [];
+    const parts = splitParts.filter((part) => String(part).trim());
+    if (parts.length === 0) {
+      return artifacts?.length
+        ? (artifacts ?? []).map((artifact, index) => ({
+            id: `${spec.outputs[0].id}:out:${index}`,
+            label: artifact.name,
+            type: spec.outputs[0].type,
+            index,
+          }))
+        : [];
+    }
+    return parts.map((part, index) => ({
+      id: `${spec.outputs[0].id}:out:${index}`,
+      label: part.trim(),
+      type: spec.outputs[0].type,
       index,
     }));
   }
@@ -281,10 +307,10 @@ export const DEFAULT_PARAMS: Record<string, Record<string, unknown>> = {
     name: '',
   },
   'split-pdf': {
-    mode: 'chunks',
+    mode: 'ranges',
     chunkSize: 1,
     ranges: '',
-    splitParts: [],
+    splitParts: [''],
   },
   'rotate-pdf': {
     angle: 90,

@@ -3,7 +3,6 @@ import {
   Background,
   BackgroundVariant,
   Controls,
-  MarkerType,
   MiniMap,
   ReactFlow,
   useReactFlow,
@@ -77,7 +76,7 @@ export function Canvas() {
           ...edge,
           type: edgeType,
           style: { stroke: color, strokeWidth: 1.5 },
-          markerEnd: { type: MarkerType.ArrowClosed, color, width: 14, height: 14 },
+          markerEnd: undefined,
         };
       }),
     [edges, edgeType, nodes],

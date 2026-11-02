@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { formatDuration } from '../lib/format';
 import { useGraphStore } from '../store/useGraphStore';
-import type { EdgeStyle } from '../store/useGraphStore';
+import type { AccentColor, EdgeStyle } from '../store/useGraphStore';
 import { useRunStore } from '../store/useRunStore';
 
 const EDGE_STYLES: { value: EdgeStyle; label: string; icon: typeof Spline }[] = [
@@ -21,6 +21,14 @@ const EDGE_STYLES: { value: EdgeStyle; label: string; icon: typeof Spline }[] = 
   { value: 'straight', label: 'Straight', icon: Minus },
 ];
 
+const ACCENTS: { value: AccentColor; label: string; color: string }[] = [
+  { value: 'amber', label: 'Yellow', color: '#fbbf24' },
+  { value: 'red', label: 'Red', color: '#f87171' },
+  { value: 'blue', label: 'Blue', color: '#60a5fa' },
+  { value: 'green', label: 'Green', color: '#4ade80' },
+  { value: 'purple', label: 'Purple', color: '#a855f7' },
+];
+
 export function TopBar() {
   const projectName = useGraphStore((state) => state.projectName);
   const setProjectName = useGraphStore((state) => state.setProjectName);
@@ -28,6 +36,8 @@ export function TopBar() {
   const clearGraph = useGraphStore((state) => state.clearGraph);
   const edgeStyle = useGraphStore((state) => state.edgeStyle);
   const setEdgeStyle = useGraphStore((state) => state.setEdgeStyle);
+  const accentColor = useGraphStore((state) => state.accentColor);
+  const setAccentColor = useGraphStore((state) => state.setAccentColor);
   const runStatus = useRunStore((state) => state.status);
   const outputs = useRunStore((state) => state.outputs);
   const runError = useRunStore((state) => state.error);
@@ -93,8 +103,8 @@ export function TopBar() {
           )}
           {isRunning && (
             <>
-              <Loader2 size={12} className="animate-spin text-amber-300" />
-              <span className="text-amber-300/90">Converting…</span>
+              <Loader2 size={12} className="animate-spin text-[rgb(var(--accent))]" />
+              <span className="text-[rgb(var(--accent))]/90">Converting…</span>
             </>
           )}
           {runStatus === 'success' && (
@@ -123,6 +133,27 @@ export function TopBar() {
         <div className="hidden h-6 w-px bg-white/[0.06] sm:block" />
 
         <div className="hidden items-center rounded-lg border border-white/[0.08] bg-forge-850/60 p-0.5 md:flex">
+          {ACCENTS.map((accent) => (
+            <button
+              key={accent.value}
+              type="button"
+              onClick={() => setAccentColor(accent.value)}
+              title={accent.label}
+              className="grid h-6 w-6 place-items-center rounded-md"
+            >
+              <span
+                className={`h-2.5 w-2.5 rounded-full ring-1 ring-inset ${
+                  accentColor === accent.value
+                    ? 'ring-white/60'
+                    : 'ring-white/20'
+                }`}
+                style={{ backgroundColor: accent.color }}
+              />
+            </button>
+          ))}
+        </div>
+
+        <div className="hidden items-center rounded-lg border border-white/[0.08] bg-forge-850/60 p-0.5 md:flex">
           {EDGE_STYLES.map((style) => {
             const Icon = style.icon;
             const active = edgeStyle === style.value;
@@ -134,7 +165,7 @@ export function TopBar() {
                 title={style.label}
                 className={`grid h-7 w-7 place-items-center rounded-md transition-colors ${
                   active
-                    ? 'bg-amber-400/15 text-amber-300'
+                    ? 'bg-[rgb(var(--accent)/0.15)] text-[rgb(var(--accent))]'
                     : 'text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300'
                 }`}
               >
@@ -167,8 +198,8 @@ export function TopBar() {
           }
           className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium ring-1 ring-inset transition-colors ${
             nodeCount === 0 || isRunning
-              ? 'cursor-not-allowed bg-amber-400/10 text-amber-200/50 ring-amber-300/10'
-              : 'bg-amber-400/15 text-amber-200 ring-amber-300/25 hover:bg-amber-400/25 hover:text-amber-100'
+              ? 'cursor-not-allowed bg-[rgb(var(--accent)/0.1)] text-[rgb(var(--accent)/0.45)] ring-[rgb(var(--accent)/0.12)]'
+              : 'bg-[rgb(var(--accent)/0.16)] text-[rgb(var(--accent))] ring-[rgb(var(--accent)/0.28)] hover:bg-[rgb(var(--accent)/0.26)]'
           }`}
         >
           {isRunning ? (
