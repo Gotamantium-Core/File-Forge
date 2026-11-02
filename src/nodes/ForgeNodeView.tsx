@@ -86,7 +86,7 @@ export function ForgeNodeView({ id, data, selected }: NodeProps<ForgeNode>) {
     <div
       className={`group relative w-[232px] rounded-xl border bg-forge-850 shadow-[0_18px_45px_-24px_rgba(0,0,0,0.95)] transition-colors ${
         selected
-          ? 'border-amber-400/50 ring-1 ring-amber-400/20'
+          ? 'border-[rgb(var(--accent)/0.6)] ring-1 ring-[rgb(var(--accent)/0.25)]'
           : 'border-white/[0.07] hover:border-white/[0.15]'
       }`}
     >

@@ -62,25 +62,25 @@ export function Canvas() {
   const [fitOnMount] = useState(() => useGraphStore.getState().nodes.length > 0);
   const edgeType = useMemo(() => getEdgeType(edgeStyle), [edgeStyle]);
 
-  const styledEdges = useMemo(
-    () =>
-      edges.map((edge) => {
-        const sourceNode = nodes.find((node) => node.id === edge.source);
-        if (!sourceNode) return edge;
-        const def = getNodeDef(sourceNode.data.defType);
-        if (!def) return edge;
-        const ports = getOutputPorts(def, sourceNode, edges);
-        const port = ports.find((candidate) => candidate.id === edge.sourceHandle);
-        const color = port ? PORT_COLORS[port.type] : '#b45309';
-        return {
-          ...edge,
-          type: edgeType,
-          style: { stroke: color, strokeWidth: 1.5 },
-          markerEnd: undefined,
-        };
-      }),
-    [edges, edgeType, nodes],
-  );
+    const styledEdges = useMemo(
+      () =>
+        edges.map((edge) => {
+          const sourceNode = nodes.find((node) => node.id === edge.source);
+          if (!sourceNode) return edge;
+          const def = getNodeDef(sourceNode.data.defType);
+          if (!def) return edge;
+          const ports = getOutputPorts(def, sourceNode, edges);
+          const port = ports.find((candidate) => candidate.id === edge.sourceHandle);
+          const color = port ? PORT_COLORS[port.type] : '#b45309';
+          return {
+            ...edge,
+            type: edgeType,
+            style: { stroke: edge.selected ? 'rgb(var(--accent))' : color, strokeWidth: 1.5 },
+            markerEnd: undefined,
+          };
+        }),
+      [edges, edgeType, nodes],
+    );
 
   const isValidConnection = useCallback((connection: Connection | Edge) => {
     const state = useGraphStore.getState();

@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 @theme {
-  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Cascadia Code', 'Cascadia Mono', Consolas, ui-monospace, monospace;
 
   --color-forge-950: #08080c;
@@ -30,6 +30,8 @@ body {
   background-color: var(--color-forge-950);
   color: #e4e4e7;
   font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -141,16 +143,16 @@ body {
 }
 
 .react-flow__edge.selected .react-flow__edge-path {
-  stroke: rgb(var(--accent));
+  stroke: rgb(var(--accent)) !important;
 }
 
 .react-flow__selection {
-  background: rgba(var(--accent), 0.08);
-  border: 1px solid rgba(var(--accent), 0.6);
+  background: rgba(var(--accent), 0.18) !important;
+  border: 1px solid rgb(var(--accent)) !important;
 }
 
 .react-flow__nodesselection-rect {
-  background: rgba(var(--accent), 0.06);
-  border: 1px solid rgba(var(--accent), 0.6);
+  background: rgba(var(--accent), 0.18) !important;
+  border: 1px solid rgb(var(--accent)) !important;
   border-radius: 8px;
 }
