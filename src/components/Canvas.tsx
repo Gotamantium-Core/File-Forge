@@ -1,4 +1,4 @@
-import { useCallback, useState, type DragEvent } from 'react';
+import { useCallback, useMemo, useState, type DragEvent } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -8,23 +8,27 @@ import {
   ReactFlow,
   useReactFlow,
 } from '@xyflow/react';
-import type { Connection, DefaultEdgeOptions, Edge, NodeTypes } from '@xyflow/react';
+import type { Connection, Edge, NodeTypes } from '@xyflow/react';
 import { MousePointer2, Workflow } from 'lucide-react';
 import { isConnectionAllowed } from '../lib/connections';
+import { getOutputPorts } from '../lib/ports';
 import { CATEGORY_META, getNodeDef } from '../nodes/catalog';
 import { ForgeNodeView } from '../nodes/ForgeNodeView';
 import { useGraphStore } from '../store/useGraphStore';
+import type { EdgeStyle } from '../store/useGraphStore';
+import { PORT_COLORS } from '../types';
 import type { ForgeNodeData } from '../types';
 
 const nodeTypes: NodeTypes = { forge: ForgeNodeView };
 
-const defaultEdgeOptions: DefaultEdgeOptions = {
-  type: 'smoothstep',
-  style: { stroke: '#b45309', strokeWidth: 1.5 },
-  markerEnd: { type: MarkerType.ArrowClosed, color: '#b45309', width: 14, height: 14 },
-};
-
 const fitViewOptions = { padding: 0.3 };
+
+function getEdgeType(style: EdgeStyle) {
+  if (style === 'bezier') return 'bezier';
+  if (style === 'straight') return 'straight';
+  if (style === 'step') return 'step';
+  return 'smoothstep';
+}
 
 function EmptyState() {
   return (
@@ -54,8 +58,30 @@ export function Canvas() {
   const onConnect = useGraphStore((state) => state.onConnect);
   const addNode = useGraphStore((state) => state.addNode);
   const clearSelection = useGraphStore((state) => state.clearSelection);
+  const edgeStyle = useGraphStore((state) => state.edgeStyle);
   const { screenToFlowPosition } = useReactFlow();
   const [fitOnMount] = useState(() => useGraphStore.getState().nodes.length > 0);
+  const edgeType = useMemo(() => getEdgeType(edgeStyle), [edgeStyle]);
+
+  const styledEdges = useMemo(
+    () =>
+      edges.map((edge) => {
+        const sourceNode = nodes.find((node) => node.id === edge.source);
+        if (!sourceNode) return edge;
+        const def = getNodeDef(sourceNode.data.defType);
+        if (!def) return edge;
+        const ports = getOutputPorts(def, sourceNode, edges);
+        const port = ports.find((candidate) => candidate.id === edge.sourceHandle);
+        const color = port ? PORT_COLORS[port.type] : '#b45309';
+        return {
+          ...edge,
+          type: edgeType,
+          style: { stroke: color, strokeWidth: 1.5 },
+          markerEnd: { type: MarkerType.ArrowClosed, color, width: 14, height: 14 },
+        };
+      }),
+    [edges, edgeType, nodes],
+  );
 
   const isValidConnection = useCallback((connection: Connection | Edge) => {
     const state = useGraphStore.getState();
@@ -83,14 +109,13 @@ export function Canvas() {
     <div className="relative h-full w-full" onDrop={onDrop} onDragOver={onDragOver}>
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={styledEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onPaneClick={clearSelection}
         nodeTypes={nodeTypes}
         isValidConnection={isValidConnection}
-        defaultEdgeOptions={defaultEdgeOptions}
         fitView={fitOnMount}
         fitViewOptions={fitViewOptions}
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}

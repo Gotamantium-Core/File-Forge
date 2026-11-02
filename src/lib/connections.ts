@@ -1,5 +1,5 @@
 import { getNodeDef } from '../nodes/catalog';
-import { portsCompatible } from '../types';
+import { findInputPort, findOutputPort, isPortHandle, portsCompatible } from '../types';
 import type { ForgeEdge, ForgeNode } from '../types';
 
 export interface ConnectionCandidate {
@@ -26,14 +26,22 @@ export function isConnectionAllowed(
   const targetDef = getNodeDef(target.data.defType);
   if (!sourceDef || !targetDef) return false;
 
-  const sourcePort = sourceDef.outputs.find((port) => port.id === sourceHandle);
-  const targetPort = targetDef.inputs.find((port) => port.id === targetHandle);
+  const sourcePort = findOutputPort(sourceDef, sourceHandle);
+  const targetPort = findInputPort(targetDef, targetHandle);
   if (!sourcePort || !targetPort) return false;
 
   if (!portsCompatible(sourcePort.type, targetPort.type)) return false;
 
-  if (
-    !targetPort.many &&
+  if (targetPort.many) {
+    if (
+      targetHandle &&
+      isPortHandle(targetPort.id, targetHandle) &&
+      targetHandle !== targetPort.id &&
+      edges.some((edge) => edge.target === targetId && edge.targetHandle === targetHandle)
+    ) {
+      return false;
+    }
+  } else if (
     edges.some((edge) => edge.target === targetId && edge.targetHandle === targetPort.id)
   ) {
     return false;

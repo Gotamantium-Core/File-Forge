@@ -546,6 +546,32 @@ function ConvertImageParams({ node }: { node: ForgeNode }) {
   );
 }
 
+function RenameParams({ node }: { node: ForgeNode }) {
+  const updateNodeParams = useGraphStore((state) => state.updateNodeParams);
+  const params = node.data.params;
+  const name = typeof params.name === 'string' ? params.name : '';
+
+  return (
+    <Section title="File name">
+      <div className="mt-2.5">
+        <Field label="New name" hint="Extension is kept unless you add one">
+          <input
+            type="text"
+            value={name}
+            placeholder="Keep original name"
+            onChange={(event) => updateNodeParams(node.id, { name: event.target.value })}
+            className={`${inputClass} placeholder:text-zinc-700`}
+          />
+        </Field>
+      </div>
+      <p className="mt-2 text-[9px] leading-relaxed text-zinc-600">
+        When several files are connected, each gets this name with a numbered suffix. Leave
+        it blank to pass names through unchanged.
+      </p>
+    </Section>
+  );
+}
+
 function MergePdfsParams() {
   return (
     <Section title="Merge order">
@@ -564,6 +590,17 @@ function SplitPdfParams({ node }: { node: ForgeNode }) {
   const chunkSize =
     typeof params.chunkSize === 'number' ? params.chunkSize : 1;
   const ranges = typeof params.ranges === 'string' ? params.ranges : '';
+  const splitParts = Array.isArray(params.splitParts)
+    ? (params.splitParts as string[])
+    : [];
+
+  const parts = splitParts.length > 0 ? splitParts : ranges ? [ranges] : [''];
+  const setParts = (next: string[]) => {
+    updateNodeParams(node.id, {
+      splitParts: next,
+      ranges: next.join(','),
+    });
+  };
 
   return (
     <Section title="Split mode">
@@ -599,20 +636,49 @@ function SplitPdfParams({ node }: { node: ForgeNode }) {
             />
           </Field>
         ) : (
-          <PageExpression
-            label="Parts"
-            hint="e.g. 1-2, 3-5"
-            value={ranges}
-            placeholder="1-2, 3-5"
-            onChange={(value) => updateNodeParams(node.id, { ranges: value })}
-          />
+          <div className="space-y-2">
+            {parts.map((part, index) => (
+              <div key={index} className="flex items-center gap-1.5">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={part}
+                    placeholder="1-2"
+                    onChange={(event) => {
+                      const next = [...parts];
+                      next[index] = event.target.value;
+                      setParts(next);
+                    }}
+                    className={`${inputClass} font-mono placeholder:text-zinc-700`}
+                  />
+                </div>
+                {parts.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setParts(parts.filter((_, i) => i !== index))}
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-zinc-600 transition-colors hover:bg-rose-400/10 hover:text-rose-300"
+                    title="Remove part"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setParts([...parts, ''])}
+              className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-2 py-1.5 text-[10px] text-zinc-400 transition-colors hover:border-white/[0.14] hover:text-zinc-300"
+            >
+              Add part
+            </button>
+          </div>
         )}
       </div>
 
       <p className="mt-2 text-[9px] leading-relaxed text-zinc-600">
         {mode === 'chunks'
           ? 'Creates one PDF per group of pages, in page order.'
-          : 'Each comma-separated selection becomes one PDF. Pages cannot appear in more than one part.'}
+          : 'Each part becomes its own output PDF. Pages cannot appear in more than one part.'}
       </p>
     </Section>
   );
@@ -885,6 +951,8 @@ export function ParamsPanel({ node }: { node: ForgeNode }) {
         <ImageToPdfParams node={node} />
       ) : def?.type === 'convert-image' ? (
         <ConvertImageParams node={node} />
+      ) : def?.type === 'rename' ? (
+        <RenameParams node={node} />
       ) : def?.type === 'merge-pdfs' ? (
         <MergePdfsParams />
       ) : def?.type === 'split-pdf' ? (

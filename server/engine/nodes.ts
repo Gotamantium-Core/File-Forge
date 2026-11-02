@@ -34,10 +34,15 @@ const convertImageSchema = z.object({
   quality: z.coerce.number().int().min(1).max(100).default(90),
 });
 
+const renameSchema = z.object({
+  name: z.string().max(200).default(''),
+});
+
 const splitPdfSchema = z.object({
   mode: z.enum(['chunks', 'ranges']).default('chunks'),
   chunkSize: z.coerce.number().int().min(1).max(5000).default(1),
   ranges: z.string().max(5000).default(''),
+  splitParts: z.array(z.string().max(5000)).max(200).optional(),
 });
 
 const rotatePdfSchema = z.object({
@@ -106,10 +111,11 @@ function baseName(name: string): string {
 }
 
 function uniqueName(base: string, extension: string, used: Set<string>): string {
-  let candidate = `${base}.${extension}`;
+  const suffix = extension ? `.${extension}` : '';
+  let candidate = `${base}${suffix}`;
   let index = 2;
   while (used.has(candidate)) {
-    candidate = `${base}-${index}.${extension}`;
+    candidate = `${base}-${index}${suffix}`;
     index += 1;
   }
   used.add(candidate);
@@ -203,6 +209,51 @@ const convertImages: NodeHandler = async ({ inputs, params }) => {
   return output;
 };
 
+const renameFiles: NodeHandler = async ({ inputs, params }) => {
+  const parsed = renameSchema.safeParse(params);
+  if (!parsed.success) {
+    throw new NodeExecutionError(
+      `Invalid settings: ${parsed.error.issues.map((issue) => issue.message).join(', ')}`,
+    );
+  }
+
+  const refs = inputs.files ?? [];
+  if (refs.length === 0) {
+    throw new NodeExecutionError('Connect at least one file to rename.');
+  }
+
+  const requested = parsed.data.name.trim();
+  const used = new Set<string>();
+  const output: ArtifactRef[] = [];
+
+  for (const ref of refs) {
+    const artifact = await loadArtifact(ref.id);
+    const originalExtension = path.extname(artifact.name).replace(/^\./, '');
+    const requestedExtension = requested ? path.extname(requested).replace(/^\./, '') : '';
+    const extension = requestedExtension || originalExtension;
+    const base = requested
+      ? requestedExtension
+        ? path.parse(requested).name
+        : requested
+      : path.parse(artifact.name).name;
+    const name = uniqueName(base || 'file', extension, used);
+
+    output.push(
+      await saveArtifact({
+        buffer: await fs.readFile(artifact.filePath),
+        name,
+        mime: artifact.mime,
+        kind: artifact.kind,
+        width: artifact.width,
+        height: artifact.height,
+        pages: artifact.pages,
+      }),
+    );
+  }
+
+  return output;
+};
+
 const pdfInput: NodeHandler = async ({ node }) => {
   const refs = node.data.artifacts ?? [];
   if (refs.length === 0) {
@@ -248,13 +299,20 @@ const splitPdf: NodeHandler = async ({ inputs, params }) => {
     throw new NodeExecutionError('Connect a PDF to split.');
   }
 
+  const ranges =
+    parsed.data.mode === 'ranges'
+      ? Array.isArray(parsed.data.splitParts) && parsed.data.splitParts.length > 0
+        ? parsed.data.splitParts.join(',')
+        : parsed.data.ranges
+      : parsed.data.ranges;
+
   const [artifact] = await loadPdfs(refs);
   const outputs = await splitPdfDocument(
     await readPdfInput(artifact),
     parsed.data.mode,
     {
       chunkSize: parsed.data.chunkSize,
-      ranges: parsed.data.ranges,
+      ranges,
     },
   );
 
@@ -417,6 +475,7 @@ export const NODE_HANDLERS: Record<string, NodeHandler> = {
   'image-input': imageInput,
   'image-to-pdf': imageToPdf,
   'convert-image': convertImages,
+  rename: renameFiles,
   'pdf-input': pdfInput,
   'merge-pdfs': mergePdfs,
   'split-pdf': splitPdf,

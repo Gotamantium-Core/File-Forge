@@ -1,3 +1,5 @@
+import type { ArtifactRef } from './artifacts';
+
 export type PortType = 'image' | 'pdf' | 'doc' | 'any';
 
 export type NodeCategory = 'input' | 'convert' | 'pdf' | 'output';
@@ -7,6 +9,8 @@ export interface PortDef {
   label: string;
   type: PortType;
   many?: boolean;
+  artifactId?: string;
+  index?: number;
 }
 
 export interface NodeSpec {
@@ -91,6 +95,14 @@ export const NODE_SPECS: NodeSpec[] = [
     outputs: [{ id: 'images', label: 'Images', type: 'image', many: true }],
   },
   {
+    type: 'rename',
+    label: 'Rename',
+    category: 'convert',
+    description: 'Give files a new name before continuing down the pipeline.',
+    inputs: [{ id: 'files', label: 'Files', type: 'any', many: true }],
+    outputs: [{ id: 'files', label: 'Files', type: 'any', many: true }],
+  },
+  {
     type: 'document-to-pdf',
     label: 'Document to PDF',
     category: 'convert',
@@ -156,6 +168,97 @@ export const NODE_SPECS: NodeSpec[] = [
   },
 ];
 
+const FILE_INPUT_TYPES: Record<string, { portId: string; type: PortType }> = {
+  'image-input': { portId: 'images', type: 'image' },
+  'pdf-input': { portId: 'pdfs', type: 'pdf' },
+};
+
+export function isPortHandle(portId: string, handle?: string | null): boolean {
+  return !!handle && (handle === portId || handle.startsWith(`${portId}:`));
+}
+
+export function resolveOutputPorts(
+  spec: NodeSpec,
+  artifacts?: ArtifactRef[],
+): PortDef[] {
+  const fileInput = FILE_INPUT_TYPES[spec.type];
+  if (fileInput) {
+    return (artifacts ?? []).map((artifact, index) => ({
+      id: `${fileInput.portId}:out:${artifact.id}`,
+      label: artifact.name,
+      type: fileInput.type,
+      artifactId: artifact.id,
+      index,
+    }));
+  }
+
+  const base = spec.outputs[0];
+  if (!base) return [];
+
+  const items = artifacts ?? [];
+  if (items.length === 0) return spec.outputs;
+
+  return items.map((artifact, index) => ({
+    id: `${base.id}:out:${index}`,
+    label: artifact.name,
+    type: base.type,
+    index,
+  }));
+}
+
+export function resolveInputPorts(
+  spec: NodeSpec,
+  incomingHandles: string[] = [],
+): PortDef[] {
+  return spec.inputs.flatMap((port) => {
+    if (!port.many) return [port];
+
+    const used = incomingHandles.filter((handle) => isPortHandle(port.id, handle));
+    const indices = new Set<number>();
+    for (const handle of used) {
+      const suffix =
+        handle === port.id
+          ? '0'
+          : handle.startsWith(`${port.id}:in:`)
+            ? handle.slice(port.id.length + 4)
+            : handle.slice(port.id.length + 1);
+      const index = Number(suffix);
+      if (Number.isInteger(index) && index >= 0) indices.add(index);
+    }
+
+    let freeIndex = 0;
+    while (indices.has(freeIndex)) freeIndex += 1;
+    indices.add(freeIndex);
+
+    return Array.from(indices)
+      .sort((a, b) => a - b)
+      .map((index) => ({
+        ...port,
+        id: `${port.id}:in:${index}`,
+        label: used.length === 0 ? port.label : `${port.label} ${index + 1}`,
+        index,
+      }));
+  });
+}
+
+export function findInputPort(
+  spec: NodeSpec,
+  handle?: string | null,
+): PortDef | undefined {
+  if (!handle) return undefined;
+  return spec.inputs.find((port) =>
+    port.many ? isPortHandle(port.id, handle) : port.id === handle,
+  );
+}
+
+export function findOutputPort(
+  spec: NodeSpec,
+  handle?: string | null,
+): PortDef | undefined {
+  if (!handle) return undefined;
+  return spec.outputs.find((port) => isPortHandle(port.id, handle));
+}
+
 const SPEC_MAP = new Map(NODE_SPECS.map((spec) => [spec.type, spec]));
 
 export function getNodeSpec(type: string): NodeSpec | undefined {
@@ -174,10 +277,14 @@ export const DEFAULT_PARAMS: Record<string, Record<string, unknown>> = {
     format: 'png',
     quality: 90,
   },
+  rename: {
+    name: '',
+  },
   'split-pdf': {
     mode: 'chunks',
     chunkSize: 1,
     ranges: '',
+    splitParts: [],
   },
   'rotate-pdf': {
     angle: 90,

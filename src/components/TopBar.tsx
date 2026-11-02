@@ -1,20 +1,33 @@
 import {
   CheckCircle2,
+  GitBranch,
   Hammer,
   Loader2,
+  Minus,
   Play,
+  Spline,
   Trash2,
   TriangleAlert,
 } from 'lucide-react';
 import { formatDuration } from '../lib/format';
 import { useGraphStore } from '../store/useGraphStore';
+import type { EdgeStyle } from '../store/useGraphStore';
 import { useRunStore } from '../store/useRunStore';
+
+const EDGE_STYLES: { value: EdgeStyle; label: string; icon: typeof Spline }[] = [
+  { value: 'smoothstep', label: 'Smooth', icon: Spline },
+  { value: 'bezier', label: 'Curved', icon: GitBranch },
+  { value: 'step', label: 'Step', icon: Minus },
+  { value: 'straight', label: 'Straight', icon: Minus },
+];
 
 export function TopBar() {
   const projectName = useGraphStore((state) => state.projectName);
   const setProjectName = useGraphStore((state) => state.setProjectName);
   const nodeCount = useGraphStore((state) => state.nodes.length);
   const clearGraph = useGraphStore((state) => state.clearGraph);
+  const edgeStyle = useGraphStore((state) => state.edgeStyle);
+  const setEdgeStyle = useGraphStore((state) => state.setEdgeStyle);
   const runStatus = useRunStore((state) => state.status);
   const outputs = useRunStore((state) => state.outputs);
   const runError = useRunStore((state) => state.error);
@@ -108,6 +121,28 @@ export function TopBar() {
         </div>
 
         <div className="hidden h-6 w-px bg-white/[0.06] sm:block" />
+
+        <div className="hidden items-center rounded-lg border border-white/[0.08] bg-forge-850/60 p-0.5 md:flex">
+          {EDGE_STYLES.map((style) => {
+            const Icon = style.icon;
+            const active = edgeStyle === style.value;
+            return (
+              <button
+                key={style.value}
+                type="button"
+                onClick={() => setEdgeStyle(style.value)}
+                title={style.label}
+                className={`grid h-7 w-7 place-items-center rounded-md transition-colors ${
+                  active
+                    ? 'bg-amber-400/15 text-amber-300'
+                    : 'text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300'
+                }`}
+              >
+                <Icon size={13} />
+              </button>
+            );
+          })}
+        </div>
 
         <button
           type="button"

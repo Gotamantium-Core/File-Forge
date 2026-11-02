@@ -3,6 +3,8 @@ import { FileText } from 'lucide-react';
 import type { NodeProps } from '@xyflow/react';
 import { artifactThumbUrl } from '../lib/api';
 import { formatDuration } from '../lib/format';
+import { getInputPorts, getOutputPorts } from '../lib/ports';
+import { useGraphStore } from '../store/useGraphStore';
 import { useRunStore } from '../store/useRunStore';
 import { PORT_COLORS } from '../types';
 import type { ForgeNode, PortDef } from '../types';
@@ -11,6 +13,7 @@ import { CATEGORY_META, getNodeDef } from './catalog';
 function PortRow({ port, side }: { port: PortDef; side: 'input' | 'output' }) {
   const color = PORT_COLORS[port.type];
   const isOutput = side === 'output';
+  const isDynamic = port.artifactId !== undefined || port.index !== undefined;
 
   return (
     <div
@@ -27,7 +30,9 @@ function PortRow({ port, side }: { port: PortDef; side: 'input' | 'output' }) {
       )}
       <span className="max-w-full truncate text-[9.5px] text-zinc-400">
         {port.label}
-        {port.many && <span className="ml-1 tracking-tighter text-zinc-600">•••</span>}
+        {port.many && !isDynamic && (
+          <span className="ml-1 tracking-tighter text-zinc-600">•••</span>
+        )}
       </span>
       {isOutput && (
         <Handle
@@ -46,6 +51,7 @@ export function ForgeNodeView({ id, data, selected }: NodeProps<ForgeNode>) {
   const def = getNodeDef(data.defType);
   const runStatus = useRunStore((state) => state.status);
   const result = useRunStore((state) => state.results[id]);
+  const edges = useGraphStore((state) => state.edges);
 
   if (!def) {
     return (
@@ -73,6 +79,8 @@ export function ForgeNodeView({ id, data, selected }: NodeProps<ForgeNode>) {
             : { dot: 'bg-zinc-600', label: 'Ready' };
   const previews = def.type === 'image-input' ? data.artifacts ?? [] : [];
   const pdfs = def.type === 'pdf-input' ? data.artifacts ?? [] : [];
+  const inputs = getInputPorts(def, { id, data }, edges);
+  const outputs = getOutputPorts(def, { id, data }, edges);
 
   return (
     <div
@@ -82,7 +90,6 @@ export function ForgeNodeView({ id, data, selected }: NodeProps<ForgeNode>) {
           : 'border-white/[0.07] hover:border-white/[0.15]'
       }`}
     >
-      <div className={`absolute inset-x-0 top-0 h-[2px] rounded-t-xl ${meta.bar}`} />
 
       <div className="flex items-start gap-2.5 px-3 pb-2 pt-3.5">
         <div
@@ -148,15 +155,15 @@ export function ForgeNodeView({ id, data, selected }: NodeProps<ForgeNode>) {
 
       <div className="grid grid-cols-2 gap-x-2 border-t border-white/[0.06] px-3 py-2">
         <div className="space-y-0.5">
-          {def.inputs.length > 0 ? (
-            def.inputs.map((port) => <PortRow key={port.id} port={port} side="input" />)
+          {inputs.length > 0 ? (
+            inputs.map((port) => <PortRow key={port.id} port={port} side="input" />)
           ) : (
             <div className="h-5" />
           )}
         </div>
         <div className="space-y-0.5">
-          {def.outputs.length > 0 ? (
-            def.outputs.map((port) => <PortRow key={port.id} port={port} side="output" />)
+          {outputs.length > 0 ? (
+            outputs.map((port) => <PortRow key={port.id} port={port} side="output" />)
           ) : (
             <div className="h-5" />
           )}

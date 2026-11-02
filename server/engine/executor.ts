@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { getNodeSpec, portsCompatible } from '../../shared/nodes';
+import {
+  findInputPort,
+  findOutputPort,
+  getNodeSpec,
+  portsCompatible,
+  resolveOutputPorts,
+} from '../../shared/nodes';
 import type { ArtifactRef } from '../../shared/artifacts';
 import { NODE_HANDLERS } from './nodes';
 import { GraphValidationError } from './types';
@@ -44,8 +50,11 @@ export async function executeGraph(
     const targetSpec = getNodeSpec(target.data.defType) as NonNullable<
       ReturnType<typeof getNodeSpec>
     >;
-    const sourcePort = sourceSpec.outputs.find((port) => port.id === edge.sourceHandle);
-    const targetPort = targetSpec.inputs.find((port) => port.id === edge.targetHandle);
+    const sourcePort =
+      resolveOutputPorts(sourceSpec, source.data.artifacts).find(
+        (port) => port.id === edge.sourceHandle,
+      ) ?? findOutputPort(sourceSpec, edge.sourceHandle);
+    const targetPort = findInputPort(targetSpec, edge.targetHandle);
 
     if (!sourcePort || !targetPort) {
       throw new GraphValidationError(
@@ -114,8 +123,28 @@ export async function executeGraph(
         blocked = true;
         break;
       }
-      const portId = edge.targetHandle as string;
-      inputs[portId] = [...(inputs[portId] ?? []), ...upstream.artifacts];
+
+      const source = nodeMap.get(edge.source);
+      const sourceSpec = source ? getNodeSpec(source.data.defType) : undefined;
+      const sourcePort = sourceSpec
+        ? resolveOutputPorts(sourceSpec, upstream.artifacts).find(
+            (port) => port.id === edge.sourceHandle,
+          )
+        : undefined;
+
+      let artifacts = upstream.artifacts;
+      if (sourcePort?.artifactId) {
+        artifacts = upstream.artifacts.filter(
+          (artifact) => artifact.id === sourcePort.artifactId,
+        );
+      } else if (sourcePort?.index !== undefined) {
+        const picked = upstream.artifacts[sourcePort.index];
+        artifacts = picked ? [picked] : [];
+      }
+
+      const targetPort = findInputPort(spec, edge.targetHandle);
+      const portId = targetPort?.id ?? (edge.targetHandle as string);
+      inputs[portId] = [...(inputs[portId] ?? []), ...artifacts];
     }
 
     if (blocked) {

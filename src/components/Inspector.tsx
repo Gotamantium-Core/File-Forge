@@ -6,6 +6,7 @@ import {
 } from '../nodes/catalog';
 import { useGraphStore } from '../store/useGraphStore';
 import { ParamsPanel } from './ParamsPanel';
+import { getInputPorts, getOutputPorts } from '../lib/ports';
 import { PORT_COLORS, portTypeLabel } from '../types';
 import type { ForgeEdge, ForgeNode, PortDef } from '../types';
 
@@ -34,7 +35,7 @@ function PortRow({
       <span className="truncate text-[10.5px] text-zinc-300">{port.label}</span>
       <span className="ml-auto shrink-0 font-mono text-[8.5px] uppercase tracking-wide text-zinc-600">
         {portTypeLabel(port.type)}
-        {port.many ? ' · many' : ''}
+        {port.many && port.artifactId === undefined && port.index === undefined ? ' · many' : ''}
       </span>
       {connected && (
         <span className="h-1 w-1 shrink-0 rounded-full bg-emerald-400" title="Connected" />
@@ -132,11 +133,19 @@ function NodeDetails({ node, edges }: { node: ForgeNode; edges: ForgeEdge[] }) {
   const meta = CATEGORY_META[def.category];
   const Icon = def.icon;
   const incoming = new Set(
-    edges.filter((edge) => edge.target === node.id).map((edge) => edge.targetHandle),
+    edges
+      .filter((edge) => edge.target === node.id)
+      .map((edge) => edge.targetHandle)
+      .filter((handle): handle is string => !!handle),
   );
   const outgoing = new Set(
-    edges.filter((edge) => edge.source === node.id).map((edge) => edge.sourceHandle),
+    edges
+      .filter((edge) => edge.source === node.id)
+      .map((edge) => edge.sourceHandle)
+      .filter((handle): handle is string => !!handle),
   );
+  const inputs = getInputPorts(def, node, edges);
+  const outputs = getOutputPorts(def, node, edges);
 
   return (
     <>
@@ -167,8 +176,8 @@ function NodeDetails({ node, edges }: { node: ForgeNode; edges: ForgeEdge[] }) {
         <div className="mt-2.5">
           <div className="mb-1 text-[9px] uppercase tracking-[0.12em] text-zinc-600">Inputs</div>
           <div className="space-y-1">
-            {def.inputs.length > 0 ? (
-              def.inputs.map((port) => (
+            {inputs.length > 0 ? (
+              inputs.map((port) => (
                 <PortRow
                   key={port.id}
                   port={port}
@@ -186,8 +195,8 @@ function NodeDetails({ node, edges }: { node: ForgeNode; edges: ForgeEdge[] }) {
         <div className="mt-2.5">
           <div className="mb-1 text-[9px] uppercase tracking-[0.12em] text-zinc-600">Outputs</div>
           <div className="space-y-1">
-            {def.outputs.length > 0 ? (
-              def.outputs.map((port) => (
+            {outputs.length > 0 ? (
+              outputs.map((port) => (
                 <PortRow
                   key={port.id}
                   port={port}

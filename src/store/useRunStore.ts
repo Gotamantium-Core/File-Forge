@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { runPipeline } from '../lib/api';
 import type { NodeRunResult, RunResponse } from '../lib/api';
 import type { ArtifactRef, ForgeEdge, ForgeNode } from '../types';
+import { useGraphStore } from './useGraphStore';
+import { getNodeDef } from '../nodes/catalog';
 
 export type RunStatus = 'idle' | 'running' | 'success' | 'error';
 
@@ -38,6 +40,16 @@ export const useRunStore = create<RunStore>((set) => ({
       const hasErrors = Object.values(response.results).some(
         (result) => result.status === 'error',
       );
+
+      const graphState = useGraphStore.getState();
+      for (const node of nodes) {
+        const result = response.results[node.id];
+        if (!result || result.status !== 'success') continue;
+        const def = getNodeDef(node.data.defType);
+        if (!def) continue;
+        if (def.category === 'input') continue;
+        graphState.setNodeArtifacts(node.id, result.artifacts);
+      }
 
       set({
         status: hasErrors ? 'error' : 'success',

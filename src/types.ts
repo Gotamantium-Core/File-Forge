@@ -5,7 +5,16 @@ import type { NodeSpec } from '../shared/nodes';
 
 export type { ArtifactKind, ArtifactRef } from '../shared/artifacts';
 export type { NodeCategory, NodeSpec, PortDef, PortType } from '../shared/nodes';
-export { PORT_COLORS, portTypeLabel, portsCompatible } from '../shared/nodes';
+export {
+  findInputPort,
+  findOutputPort,
+  isPortHandle,
+  PORT_COLORS,
+  portTypeLabel,
+  portsCompatible,
+  resolveInputPorts,
+  resolveOutputPorts,
+} from '../shared/nodes';
 
 export interface NodeDef extends NodeSpec {
   icon: LucideIcon;

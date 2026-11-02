@@ -121,6 +121,12 @@ export function parsePageSplitGroups(
 ): number[][] {
   ensurePageCount(pageCount);
 
+  if (!expression || !expression.trim()) {
+    throw new PageSelectionError(
+      'Add at least one page range for each part.',
+    );
+  }
+
   const groups = tokenize(expression).map((token) =>
     expandToken(token, pageCount),
   );
