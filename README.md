@@ -42,6 +42,20 @@ The **Output** node is optional: if none is present, File Forge falls back to co
 
 Requires Node.js 20+ (developed against modern Node with native `fetch` and `tsx`).
 
+### One-click launch
+
+Use this when you just want to open the app in your browser:
+
+- **Windows:** double-click `Open File Forge.cmd`.
+- **Linux:** run `./open-file-forge.sh`, or double-click it if your file manager allows running scripts.
+- **Linux app menu / desktop shortcut:** run `npm run shortcut:linux` once.
+
+The launcher installs dependencies and builds the app the first time, then starts the local server and opens <http://127.0.0.1:3001> in your default browser. Later launches reuse the existing build unless source files have changed. Keep the launcher window open while you use the app; close it or press `Ctrl+C` to stop the server.
+
+You can also run `npm run open` from a terminal. Pass `--no-open` to just start the server without opening a browser. To use a different port, set `PORT` before launching.
+
+### Development
+
 ```bash
 npm install
 npm run dev
@@ -72,6 +86,8 @@ When `dist/index.html` exists, the Express server also serves the built SPA, so 
 | `npm run dev:api` | Run only the API with `tsx watch`. |
 | `npm run build` | Typecheck with `tsc --noEmit`, then build the SPA. |
 | `npm start` | Start the API server (serves `dist/` when present). |
+| `npm run open` | Build if needed, start the local app, and open it in the browser. |
+| `npm run shortcut:linux` | Add a Linux application menu entry and desktop shortcut. |
 | `npm run typecheck` | Typecheck the frontend, server, and shared code. |
 
 ## Usage

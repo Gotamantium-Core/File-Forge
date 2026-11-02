@@ -9,7 +9,9 @@
     "dev:api": "tsx watch server/index.ts",
     "build": "tsc --noEmit && vite build",
     "start": "tsx server/index.ts",
+    "open": "node scripts/launch.mjs",
     "preview": "vite preview",
+    "shortcut:linux": "node scripts/install-linux-shortcut.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
