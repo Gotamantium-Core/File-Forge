@@ -8,21 +8,22 @@ import {
   FileText,
   ImagePlus,
   Loader2,
+  Music,
   SlidersHorizontal,
   X,
 } from 'lucide-react';
 import { artifactDownloadUrl, artifactThumbUrl, uploadFiles } from '../lib/api';
 import type { UploadKind } from '../lib/api';
-import { formatBytes, formatDuration } from '../lib/format';
+import { formatAudioDuration, formatBytes, formatDuration } from '../lib/format';
 import { getNodeDef } from '../nodes/catalog';
 import { useGraphStore } from '../store/useGraphStore';
 import { useRunStore } from '../store/useRunStore';
 import type { ArtifactRef, ForgeNode } from '../types';
 
 const inputClass =
-  'w-full rounded-lg border border-white/[0.08] bg-forge-950/60 px-2 py-1.5 text-[11px] text-zinc-300 outline-none transition-colors focus:border-amber-400/40';
+  'w-full rounded-lg border border-white/[0.08] bg-forge-950/60 px-2 py-1.5 text-[16.5px] text-zinc-300 outline-none transition-colors focus:border-amber-400/40';
 const labelClass =
-  'text-[9px] font-semibold uppercase tracking-[0.14em] text-zinc-500';
+  'text-[13px] font-semibold uppercase tracking-[0.14em] text-zinc-500';
 
 function Section({
   title,
@@ -36,7 +37,7 @@ function Section({
   return (
     <section className="mt-2.5 rounded-xl border border-white/[0.06] bg-forge-850 p-3">
       <div className="flex items-center gap-2">
-        <h3 className="text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+        <h3 className="text-[13px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
           {title}
         </h3>
         {badge}
@@ -59,7 +60,7 @@ function Field({
     <div>
       <div className="mb-1 flex items-center justify-between gap-2">
         <span className={labelClass}>{label}</span>
-        {hint && <span className="text-[8.5px] text-zinc-600">{hint}</span>}
+        {hint && <span className="text-[12px] text-zinc-600">{hint}</span>}
       </div>
       {children}
     </div>
@@ -112,7 +113,7 @@ function Segmented({
           key={option.value}
           type="button"
           onClick={() => onChange(option.value)}
-          className={`rounded-md px-1 py-1 text-[10px] font-medium transition-colors ${
+          className={`rounded-md px-1 py-1 text-[15px] font-medium transition-colors ${
             value === option.value
               ? 'bg-amber-400/15 text-amber-300 ring-1 ring-inset ring-amber-400/25'
               : 'text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300'
@@ -135,11 +136,16 @@ function ArtifactRow({
   onRemove?: () => void;
 }) {
   const isImage = artifact.kind === 'image';
+  const isAudio = artifact.kind === 'audio';
   const dimensions =
     artifact.width && artifact.height
       ? ` · ${artifact.width}×${artifact.height}`
       : '';
   const pages = artifact.pages ? ` · ${artifact.pages} pages` : '';
+  const duration =
+    artifact.duration !== undefined
+      ? ` · ${formatAudioDuration(artifact.duration)}`
+      : '';
 
   return (
     <li className="flex items-center gap-2 rounded-lg border border-white/[0.05] bg-forge-900/60 p-1.5">
@@ -150,19 +156,24 @@ function ArtifactRow({
           loading="lazy"
           className="h-8 w-8 shrink-0 rounded-md border border-white/[0.06] bg-black/30 object-cover"
         />
+      ) : isAudio ? (
+        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-purple-400/15 bg-purple-400/10 text-purple-300">
+          <Music size={14} />
+        </div>
       ) : (
         <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-rose-400/15 bg-rose-400/10 text-rose-300">
           <FileText size={14} />
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[10.5px] text-zinc-300" title={artifact.name}>
+        <div className="truncate text-[16px] text-zinc-300" title={artifact.name}>
           {artifact.name}
         </div>
-        <div className="font-mono text-[8.5px] text-zinc-600">
+        <div className="font-mono text-[12px] text-zinc-600">
           {formatBytes(artifact.size)}
           {dimensions}
           {pages}
+          {duration}
         </div>
       </div>
       <a
@@ -209,13 +220,22 @@ function FileInputParams({
           drop: 'Drop PDFs or click to browse',
           hint: 'PDF files · up to 50 MB each',
         }
-      : {
-          title: 'Images',
-          accept: 'image/*',
-          empty: 'Choose one or more image files.',
-          drop: 'Drop images or click to browse',
-          hint: 'PNG, JPEG, WebP, GIF, TIFF · up to 50 MB each',
-        };
+      : kind === 'audio'
+        ? {
+            title: 'Audio',
+            accept: 'audio/*,.mp3,.flac,.wav,.ogg,.oga,.opus,.m4a,.aac,.aiff,.wma',
+            empty: 'Choose one or more audio files.',
+            drop: 'Drop audio or click to browse',
+            hint: 'MP3, FLAC, WAV, OGG, M4A · up to 50 MB each',
+          }
+        : {
+            title: 'Images',
+            accept: 'image/*',
+            empty: 'Choose one or more image files.',
+            drop: 'Drop images or click to browse',
+            hint: 'PNG, JPEG, WebP, GIF, TIFF · up to 50 MB each',
+          };
+  const isAudio = kind === 'audio';
 
   const handleFiles = async (files: File[]) => {
     if (uploading) return;
@@ -223,8 +243,11 @@ function FileInputParams({
     const accepted = files.filter((file) =>
       kind === 'pdf'
         ? file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
-        : file.type.startsWith('image/') ||
-          /\.(png|jpe?g|webp|gif|tiff?|bmp|avif|heic|heif)$/i.test(file.name),
+        : kind === 'audio'
+          ? file.type.startsWith('audio/') ||
+            /\.(mp3|flac|wav|wave|ogg|oga|opus|m4a|aac|aiff?|wma)$/i.test(file.name)
+          : file.type.startsWith('image/') ||
+            /\.(png|jpe?g|webp|gif|tiff?|bmp|avif|heic|heif)$/i.test(file.name),
     );
 
     if (accepted.length === 0) {
@@ -266,7 +289,7 @@ function FileInputParams({
       title={copy.title}
       badge={
         artifacts.length > 0 ? (
-          <span className="rounded bg-emerald-400/10 px-1.5 py-0.5 font-mono text-[8.5px] text-emerald-300">
+          <span className="rounded bg-emerald-400/10 px-1.5 py-0.5 font-mono text-[12px] text-emerald-300">
             {artifacts.length}
           </span>
         ) : undefined
@@ -294,21 +317,30 @@ function FileInputParams({
         onDrop={handleDrop}
         className={`mt-2.5 flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed px-3 py-4 text-center transition-colors ${
           dragOver
-            ? 'border-amber-400/50 bg-amber-400/[0.06]'
-            : 'border-white/[0.1] hover:border-amber-400/30 hover:bg-white/[0.02]'
+            ? isAudio
+              ? 'border-purple-400/50 bg-purple-400/[0.06]'
+              : 'border-amber-400/50 bg-amber-400/[0.06]'
+            : isAudio
+              ? 'border-white/[0.1] hover:border-purple-400/30 hover:bg-white/[0.02]'
+              : 'border-white/[0.1] hover:border-amber-400/30 hover:bg-white/[0.02]'
         }`}
       >
         {uploading ? (
-          <Loader2 size={17} className="animate-spin text-amber-300" />
+          <Loader2
+            size={17}
+            className={`animate-spin ${isAudio ? 'text-purple-300' : 'text-amber-300'}`}
+          />
         ) : kind === 'pdf' ? (
           <FileText size={17} className="text-zinc-500" />
+        ) : isAudio ? (
+          <Music size={17} className="text-zinc-500" />
         ) : (
           <ImagePlus size={17} className="text-zinc-500" />
         )}
-        <span className="mt-0.5 text-[10.5px] font-medium text-zinc-300">
+        <span className="mt-0.5 text-[16px] font-medium text-zinc-300">
           {uploading ? 'Uploading…' : copy.drop}
         </span>
-        <span className="text-[8.5px] text-zinc-600">{copy.hint}</span>
+        <span className="text-[12px] text-zinc-600">{copy.hint}</span>
       </div>
 
       <input
@@ -325,7 +357,7 @@ function FileInputParams({
       />
 
       {error && (
-        <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-rose-400/15 bg-rose-400/5 px-2 py-1.5 text-[9.5px] leading-relaxed text-rose-300">
+        <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-rose-400/15 bg-rose-400/5 px-2 py-1.5 text-[13.5px] leading-relaxed text-rose-300">
           <AlertCircle size={11} className="mt-px shrink-0" />
           <span>{error}</span>
         </div>
@@ -438,7 +470,7 @@ function ImageToPdfParams({ node }: { node: ForgeNode }) {
               className="h-5 w-7 cursor-pointer rounded border border-white/10 bg-transparent p-0"
               aria-label="Page background colour"
             />
-            <span className="font-mono text-[9.5px] uppercase text-zinc-500">
+            <span className="font-mono text-[13.5px] uppercase text-zinc-500">
               {background}
             </span>
           </div>
@@ -446,7 +478,7 @@ function ImageToPdfParams({ node }: { node: ForgeNode }) {
       </div>
 
       {pageSize === 'fit' && (
-        <p className="mt-2 text-[9px] leading-relaxed text-zinc-600">
+        <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
           Pages match each image’s aspect ratio. Orientation is applied when a fixed page size
           is used.
         </p>
@@ -474,7 +506,7 @@ function ConvertImageParams({ node }: { node: ForgeNode }) {
                 key={format}
                 type="button"
                 onClick={() => updateNodeParams(node.id, { format })}
-                className={`rounded-md px-1 py-1 text-[10px] font-medium uppercase tracking-wide transition-colors ${
+                className={`rounded-md px-1 py-1 text-[15px] font-medium uppercase tracking-wide transition-colors ${
                   targetFormat === format
                     ? 'bg-amber-400/15 text-amber-300 ring-1 ring-inset ring-amber-400/25'
                     : 'text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300'
@@ -504,14 +536,14 @@ function ConvertImageParams({ node }: { node: ForgeNode }) {
               }
               className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-white/10 accent-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
             />
-            <span className="w-8 text-right font-mono text-[10px] text-zinc-400">
+            <span className="w-8 text-right font-mono text-[15px] text-zinc-400">
               {quality}
             </span>
           </div>
         </Field>
       </div>
 
-      <p className="mt-2 text-[9px] leading-relaxed text-zinc-600">
+      <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
         {targetFormat === 'png'
           ? 'PNG keeps transparency and uses lossless compression.'
           : targetFormat === 'jpeg'
@@ -540,9 +572,173 @@ function RenameParams({ node }: { node: ForgeNode }) {
           />
         </Field>
       </div>
-      <p className="mt-2 text-[9px] leading-relaxed text-zinc-600">
+      <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
         When several files are connected, each gets this name with a numbered suffix. Leave
         it blank to pass names through unchanged.
+      </p>
+    </Section>
+  );
+}
+
+function AudioMetadataParams({ node }: { node: ForgeNode }) {
+  const updateNodeParams = useGraphStore((state) => state.updateNodeParams);
+  const params = node.data.params;
+  const update = (patch: Record<string, unknown>) =>
+    updateNodeParams(node.id, patch);
+  const valueOf = (key: string) =>
+    typeof params[key] === 'string' ? (params[key] as string) : '';
+
+  const tags: Array<[string, string, string]> = [
+    ['title', 'Title', 'Song title'],
+    ['artist', 'Artist', 'Track artist'],
+    ['album', 'Album', 'Album name'],
+    ['albumArtist', 'Album artist', 'Album artist'],
+    ['year', 'Year', 'e.g. 2026'],
+    ['genre', 'Genre', 'e.g. Ambient'],
+    ['track', 'Track', 'e.g. 3/12'],
+  ];
+
+  return (
+    <>
+      <Section title="Tags">
+        <div className="mt-2.5 grid grid-cols-2 gap-2">
+          {tags.map(([key, label, placeholder]) => (
+            <Field key={key} label={label}>
+              <input
+                type="text"
+                value={valueOf(key)}
+                placeholder={placeholder}
+                onChange={(event) => update({ [key]: event.target.value })}
+                className={`${inputClass} placeholder:text-zinc-700`}
+              />
+            </Field>
+          ))}
+        </div>
+        <div className="mt-2.5">
+          <Field label="Comment">
+            <input
+              type="text"
+              value={valueOf('comment')}
+              placeholder="Optional note"
+              onChange={(event) => update({ comment: event.target.value })}
+              className={`${inputClass} placeholder:text-zinc-700`}
+            />
+          </Field>
+        </div>
+        <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
+          Blank fields keep the existing tags.
+        </p>
+      </Section>
+
+      <Section title="Cover art">
+        <p className="mt-1.5 text-[15px] leading-relaxed text-zinc-500">
+          Connect an image to the Artwork input to embed album art. With nothing connected,
+          existing covers are kept.
+        </p>
+        <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
+          Artwork is embedded for MP3, FLAC and M4A. Other formats keep tags only.
+        </p>
+      </Section>
+    </>
+  );
+}
+
+function BatchAudioMetadataParams({ node }: { node: ForgeNode }) {
+  const updateNodeParams = useGraphStore((state) => state.updateNodeParams);
+  const params = node.data.params;
+  const valueOf = (key: string) =>
+    typeof params[key] === 'string' ? (params[key] as string) : '';
+
+  const fields: Array<[string, string, string]> = [
+    ['album', 'Album', 'Album name'],
+    ['artist', 'Artist', 'Track artist'],
+    ['albumArtist', 'Album artist', 'Album artist'],
+    ['year', 'Year', 'e.g. 2026'],
+    ['genre', 'Genre', 'e.g. Ambient'],
+  ];
+
+  return (
+    <Section title="Album tags">
+      <div className="mt-2.5 grid grid-cols-2 gap-2">
+        {fields.map(([key, label, placeholder]) => (
+          <Field key={key} label={label}>
+            <input
+              type="text"
+              value={valueOf(key)}
+              placeholder={placeholder}
+              onChange={(event) => updateNodeParams(node.id, { [key]: event.target.value })}
+              className={`${inputClass} placeholder:text-zinc-700`}
+            />
+          </Field>
+        ))}
+      </div>
+      <div className="mt-2.5">
+        <Field label="Comment">
+          <input
+            type="text"
+            value={valueOf('comment')}
+            placeholder="Optional note"
+            onChange={(event) => updateNodeParams(node.id, { comment: event.target.value })}
+            className={`${inputClass} placeholder:text-zinc-700`}
+          />
+        </Field>
+      </div>
+      <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
+        Track numbers follow connection order: the first input becomes track 1, the next
+        track 2, and so on. Blank fields keep existing tags. Connect an image to the
+        Artwork input to embed the same cover on every track (MP3, FLAC and M4A). All
+        updated tracks are bundled into a single ZIP.
+      </p>
+    </Section>
+  );
+}
+
+function ConvertAudioParams({ node }: { node: ForgeNode }) {
+  const updateNodeParams = useGraphStore((state) => state.updateNodeParams);
+  const params = node.data.params;
+  const format = typeof params.format === 'string' ? params.format : 'mp3';
+  const bitrate = typeof params.bitrate === 'string' ? params.bitrate : '192k';
+  const lossless = format === 'flac' || format === 'wav';
+
+  return (
+    <Section title="Encoding">
+      <div className="mt-2.5">
+        <Field label="Output format">
+          <Select
+            value={format}
+            onChange={(value) => updateNodeParams(node.id, { format: value })}
+            options={[
+              { value: 'mp3', label: 'MP3' },
+              { value: 'flac', label: 'FLAC' },
+              { value: 'wav', label: 'WAV' },
+              { value: 'ogg', label: 'OGG (Vorbis)' },
+              { value: 'm4a', label: 'M4A (AAC)' },
+            ]}
+          />
+        </Field>
+      </div>
+
+      <div className="mt-2.5">
+        <Field label="Bitrate" hint={lossless ? 'Not used for lossless' : 'Lossy quality'}>
+          <Select
+            value={bitrate}
+            disabled={lossless}
+            onChange={(value) => updateNodeParams(node.id, { bitrate: value })}
+            options={[
+              { value: '128k', label: '128 kbps' },
+              { value: '192k', label: '192 kbps' },
+              { value: '256k', label: '256 kbps' },
+              { value: '320k', label: '320 kbps' },
+            ]}
+          />
+        </Field>
+      </div>
+
+      <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
+        {lossless
+          ? 'FLAC and WAV are lossless, so the bitrate setting is ignored.'
+          : 'Higher bitrates keep more detail but create larger files.'}{' '}
+        Tags are carried over; cover art is not.
       </p>
     </Section>
   );
@@ -551,7 +747,7 @@ function RenameParams({ node }: { node: ForgeNode }) {
 function MergePdfsParams() {
   return (
     <Section title="Merge order">
-      <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-500">
+      <p className="mt-1.5 text-[15px] leading-relaxed text-zinc-500">
         PDFs are combined in the order their connections reach this node. To change the
         order, reconnect the inputs in the sequence you want.
       </p>
@@ -615,7 +811,7 @@ function SplitPdfParams({ node }: { node: ForgeNode }) {
                 className={`${inputClass} font-mono placeholder:text-zinc-700`}
               />
             </div>
-            <span className="text-[10px] text-zinc-600">–</span>
+            <span className="text-[15px] text-zinc-600">–</span>
             <div className="flex-1">
               <input
                 type="number"
@@ -645,13 +841,13 @@ function SplitPdfParams({ node }: { node: ForgeNode }) {
         <button
           type="button"
           onClick={() => setPairs([...pairs, ['', '']])}
-          className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-2 py-1.5 text-[10px] text-zinc-400 transition-colors hover:border-white/[0.14] hover:text-zinc-300"
+          className="w-full rounded-lg border border-white/[0.08] bg-white/[0.02] px-2 py-1.5 text-[15px] text-zinc-400 transition-colors hover:border-white/[0.14] hover:text-zinc-300"
         >
           Add interval
         </button>
       </div>
 
-      <p className="mt-2 text-[9px] leading-relaxed text-zinc-600">
+      <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
         Each part becomes its own output PDF. Pages cannot appear in more than one part.
       </p>
     </Section>
@@ -750,7 +946,7 @@ function PageSelectionParams({
             />
           </Field>
         </div>
-        <p className="mt-2 text-[9px] leading-relaxed text-zinc-600">
+        <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
           Remaining pages keep their original order. At least one page must stay.
         </p>
       </Section>
@@ -764,7 +960,7 @@ function PageSelectionParams({
           <PagesInput value={pages} onChange={(value) => updateNodeParams(node.id, { pages: value })} />
         </Field>
       </div>
-      <p className="mt-2 text-[9px] leading-relaxed text-zinc-600">
+      <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
         Extracted pages keep the order you enter, with duplicates removed.
       </p>
     </Section>
@@ -789,7 +985,7 @@ function ReorderPdfParams({ node }: { node: ForgeNode }) {
           />
         </Field>
       </div>
-      <p className="mt-2 text-[9px] leading-relaxed text-zinc-600">
+      <p className="mt-2 text-[13px] leading-relaxed text-zinc-600">
         List every page exactly once in its new position. Ranges expand in place, so
         “2-3, 1” becomes pages 2, 3, 1.
       </p>
@@ -807,21 +1003,21 @@ function OutputParams({ node }: { node: ForgeNode }) {
       title="Output files"
       badge={
         artifacts.length > 0 ? (
-          <span className="rounded bg-sky-400/10 px-1.5 py-0.5 font-mono text-[8.5px] text-sky-300">
+          <span className="rounded bg-sky-400/10 px-1.5 py-0.5 font-mono text-[12px] text-sky-300">
             {artifacts.length}
           </span>
         ) : undefined
       }
     >
       {globalStatus === 'running' && (
-        <div className="mt-2 flex items-center gap-2 text-[10px] text-amber-300/90">
+        <div className="mt-2 flex items-center gap-2 text-[15px] text-amber-300/90">
           <Loader2 size={12} className="animate-spin" />
           Waiting for the pipeline…
         </div>
       )}
 
       {result?.status === 'error' && (
-        <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-rose-400/15 bg-rose-400/5 px-2 py-1.5 text-[9.5px] leading-relaxed text-rose-300">
+        <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-rose-400/15 bg-rose-400/5 px-2 py-1.5 text-[13.5px] leading-relaxed text-rose-300">
           <AlertCircle size={11} className="mt-px shrink-0" />
           <span>{result.error ?? 'This node failed.'}</span>
         </div>
@@ -836,7 +1032,7 @@ function OutputParams({ node }: { node: ForgeNode }) {
       ) : (
         globalStatus !== 'running' &&
         result?.status !== 'error' && (
-          <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-500">
+          <p className="mt-1.5 text-[15px] leading-relaxed text-zinc-500">
             Run the pipeline to collect finished files here. Each output keeps its
             original filename and can be downloaded individually.
           </p>
@@ -851,14 +1047,14 @@ function ComingSoonParams() {
     <Section
       title="Parameters"
       badge={
-        <span className="ml-auto rounded bg-white/5 px-1.5 py-0.5 text-[8px] uppercase tracking-wider text-zinc-600">
+        <span className="ml-auto rounded bg-white/5 px-1.5 py-0.5 text-[11px] uppercase tracking-wider text-zinc-600">
           Soon
         </span>
       }
     >
       <div className="mt-1.5 flex gap-2">
         <SlidersHorizontal size={13} className="mt-0.5 shrink-0 text-zinc-600" />
-        <p className="text-[10px] leading-relaxed text-zinc-500">
+        <p className="text-[15px] leading-relaxed text-zinc-500">
           This node’s options arrive with the next engine milestone. Image, PDF and
           document-output tools are ready now.
         </p>
@@ -877,7 +1073,7 @@ function RunResultSection({ node }: { node: ForgeNode }) {
   if (!result) {
     return (
       <Section title="Last run">
-        <div className="mt-2 flex items-center gap-2 text-[10px] text-amber-300/90">
+        <div className="mt-2 flex items-center gap-2 text-[15px] text-amber-300/90">
           <Loader2 size={12} className="animate-spin" />
           Running…
         </div>
@@ -915,18 +1111,18 @@ function RunResultSection({ node }: { node: ForgeNode }) {
     <Section title="Last run">
       <div className="mt-2 flex items-center gap-2">
         <span
-          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-medium ${meta.className}`}
+          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[13px] font-medium ${meta.className}`}
         >
           <meta.Icon size={10} />
           {meta.label}
         </span>
-        <span className="font-mono text-[9px] text-zinc-600">
+        <span className="font-mono text-[13px] text-zinc-600">
           {formatDuration(result.durationMs)}
         </span>
       </div>
 
       {result.error && (
-        <p className="mt-2 rounded-lg border border-rose-400/10 bg-rose-400/[0.04] px-2 py-1.5 text-[9.5px] leading-relaxed text-rose-300/90">
+        <p className="mt-2 rounded-lg border border-rose-400/10 bg-rose-400/[0.04] px-2 py-1.5 text-[13.5px] leading-relaxed text-rose-300/90">
           {result.error}
         </p>
       )}
@@ -951,6 +1147,14 @@ export function ParamsPanel({ node }: { node: ForgeNode }) {
         <FileInputParams node={node} kind="image" />
       ) : def?.type === 'pdf-input' ? (
         <FileInputParams node={node} kind="pdf" />
+      ) : def?.type === 'audio-input' ? (
+        <FileInputParams node={node} kind="audio" />
+      ) : def?.type === 'audio-metadata' ? (
+        <AudioMetadataParams node={node} />
+      ) : def?.type === 'batch-audio-metadata' ? (
+        <BatchAudioMetadataParams node={node} />
+      ) : def?.type === 'convert-audio' ? (
+        <ConvertAudioParams node={node} />
       ) : def?.type === 'image-to-pdf' ? (
         <ImageToPdfParams node={node} />
       ) : def?.type === 'convert-image' ? (

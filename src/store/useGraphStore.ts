@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DEFAULT_PARAMS, findInputPort, resolveOutputPorts } from '../../shared/nodes';
 import { isConnectionAllowed } from '../lib/connections';
+import { snapPoint, snapToGrid } from '../lib/grid';
 import { getNodeDef } from '../nodes/catalog';
 import type { ForgeEdge, ForgeNode, ForgeNodeData } from '../types';
 
@@ -11,12 +12,10 @@ export type EdgeStyle = 'smoothstep' | 'straight' | 'bezier' | 'step';
 export type AccentColor = 'amber' | 'red' | 'blue' | 'green' | 'purple';
 
 interface GraphStore {
-  projectName: string;
   nodes: ForgeNode[];
   edges: ForgeEdge[];
   edgeStyle: EdgeStyle;
   accentColor: AccentColor;
-  setProjectName: (name: string) => void;
   setEdgeStyle: (style: EdgeStyle) => void;
   setAccentColor: (color: AccentColor) => void;
   onNodesChange: (changes: NodeChange<ForgeNode>[]) => void;
@@ -29,6 +28,7 @@ interface GraphStore {
   deleteNodes: (ids: string[]) => void;
   clearSelection: () => void;
   clearGraph: () => void;
+  snapAllNodes: () => void;
 }
 
 function createId(): string {
@@ -40,26 +40,32 @@ function createId(): string {
 
 function cascadePosition(count: number): { x: number; y: number } {
   return {
-    x: 140 + (count % 6) * 36,
-    y: 110 + (count % 6) * 36,
+    x: snapToGrid(140 + (count % 6) * 36),
+    y: snapToGrid(110 + (count % 6) * 36),
   };
 }
 
 export const useGraphStore = create<GraphStore>()(
   persist(
     (set, get) => ({
-      projectName: 'Untitled pipeline',
       nodes: [],
       edges: [],
       edgeStyle: 'smoothstep' as EdgeStyle,
       accentColor: 'amber' as AccentColor,
 
-      setProjectName: (name) => set({ projectName: name }),
       setEdgeStyle: (style) => set({ edgeStyle: style }),
       setAccentColor: (color) => set({ accentColor: color }),
 
       onNodesChange: (changes) => {
-        set({ nodes: applyNodeChanges(changes, get().nodes) });
+        set({
+          nodes: applyNodeChanges(changes, get().nodes).map((node) => {
+            const position = snapPoint(node.position);
+            if (position.x === node.position.x && position.y === node.position.y) {
+              return node;
+            }
+            return { ...node, position };
+          }),
+        });
       },
 
       onEdgesChange: (changes) => {
@@ -80,7 +86,7 @@ export const useGraphStore = create<GraphStore>()(
         const node: ForgeNode = {
           id: createId(),
           type: 'forge',
-          position: position ?? cascadePosition(state.nodes.length),
+          position: snapPoint(position ?? cascadePosition(state.nodes.length)),
           data: { defType, params: { ...(DEFAULT_PARAMS[defType] ?? {}) } },
           selected: true,
         };
@@ -129,7 +135,7 @@ export const useGraphStore = create<GraphStore>()(
         const clone: ForgeNode = {
           ...node,
           id: createId(),
-          position: { x: node.position.x + 36, y: node.position.y + 36 },
+          position: snapPoint({ x: node.position.x + 36, y: node.position.y + 36 }),
           selected: true,
           data: {
             ...node.data,
@@ -170,77 +176,102 @@ export const useGraphStore = create<GraphStore>()(
       },
 
       clearGraph: () => set({ nodes: [], edges: [] }),
+
+      snapAllNodes: () => {
+        set((state) => ({
+          nodes: state.nodes.map((node) => {
+            const position = snapPoint(node.position);
+            if (position.x === node.position.x && position.y === node.position.y) {
+              return node;
+            }
+            return { ...node, position };
+          }),
+        }));
+      },
     }),
     {
       name: 'file-forge-graph',
-      version: 3,
+      version: 4,
       migrate: (persisted, version) => {
-        if (version >= 3) return persisted as GraphStore;
-
         const state = persisted as
           | (Partial<GraphStore> & Pick<GraphStore, 'nodes' | 'edges'>)
           | undefined;
         if (!state?.nodes || !state.edges) return persisted as GraphStore;
 
+        let nodes = state.nodes;
         let edges = state.edges;
 
-        if (version < 2) {
-          const validHandles = new Map<string, Set<string>>();
-          for (const node of state.nodes) {
+        if (version < 3) {
+          if (version < 2) {
+            const validHandles = new Map<string, Set<string>>();
+            for (const node of nodes) {
+              const def = getNodeDef(node.data.defType);
+              if (def) {
+                validHandles.set(
+                  node.id,
+                  new Set(
+                    resolveOutputPorts(def, node.data.artifacts).map((port) => port.id),
+                  ),
+                );
+              }
+            }
+
+            edges = edges.filter((edge) => {
+              const handles = validHandles.get(edge.source);
+              return !handles || !edge.sourceHandle || handles.has(edge.sourceHandle);
+            });
+          }
+
+          const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+          const counters = new Map<string, number>();
+          const fileInputPorts = new Map<string, string>();
+          for (const node of nodes) {
             const def = getNodeDef(node.data.defType);
-            if (def) {
-              validHandles.set(
-                node.id,
-                new Set(
-                  resolveOutputPorts(def, node.data.artifacts).map((port) => port.id),
-                ),
-              );
+            if (def && (def.type === 'image-input' || def.type === 'pdf-input')) {
+              fileInputPorts.set(node.id, def.outputs[0]?.id ?? '');
             }
           }
 
-          edges = edges.filter((edge) => {
-            const handles = validHandles.get(edge.source);
-            return !handles || !edge.sourceHandle || handles.has(edge.sourceHandle);
+          edges = edges.map((edge) => {
+            let next = edge;
+            const sourcePortId = fileInputPorts.get(edge.source);
+            if (
+              sourcePortId &&
+              edge.sourceHandle?.startsWith(`${sourcePortId}:`) &&
+              !edge.sourceHandle.startsWith(`${sourcePortId}:out:`)
+            ) {
+              const suffix = edge.sourceHandle.slice(sourcePortId.length + 1);
+              next = { ...next, sourceHandle: `${sourcePortId}:out:${suffix}` };
+            }
+
+            const target = nodeMap.get(edge.target);
+            const def = target ? getNodeDef(target.data.defType) : undefined;
+            const port = def ? findInputPort(def, edge.targetHandle) : undefined;
+            if (!port?.many) return next;
+
+            const key = `${edge.target}::${port.id}`;
+            const index = counters.get(key) ?? 0;
+            counters.set(key, index + 1);
+            return { ...next, targetHandle: `${port.id}:in:${index}` };
           });
         }
 
-        const nodeMap = new Map(state.nodes.map((node) => [node.id, node]));
-        const counters = new Map<string, number>();
-        const fileInputPorts = new Map<string, string>();
-        for (const node of state.nodes) {
-          const def = getNodeDef(node.data.defType);
-          if (def && (def.type === 'image-input' || def.type === 'pdf-input')) {
-            fileInputPorts.set(node.id, def.outputs[0]?.id ?? '');
-          }
+        if (version < 4) {
+          const removedTypes = new Set(['text-input', 'document-to-pdf']);
+          const removedIds = new Set(
+            nodes
+              .filter((node) => removedTypes.has(node.data.defType))
+              .map((node) => node.id),
+          );
+          nodes = nodes.filter((node) => !removedIds.has(node.id));
+          edges = edges.filter(
+            (edge) => !removedIds.has(edge.source) && !removedIds.has(edge.target),
+          );
         }
 
-        edges = edges.map((edge) => {
-          let next = edge;
-          const sourcePortId = fileInputPorts.get(edge.source);
-          if (
-            sourcePortId &&
-            edge.sourceHandle?.startsWith(`${sourcePortId}:`) &&
-            !edge.sourceHandle.startsWith(`${sourcePortId}:out:`)
-          ) {
-            const suffix = edge.sourceHandle.slice(sourcePortId.length + 1);
-            next = { ...next, sourceHandle: `${sourcePortId}:out:${suffix}` };
-          }
-
-          const target = nodeMap.get(edge.target);
-          const def = target ? getNodeDef(target.data.defType) : undefined;
-          const port = def ? findInputPort(def, edge.targetHandle) : undefined;
-          if (!port?.many) return next;
-
-          const key = `${edge.target}::${port.id}`;
-          const index = counters.get(key) ?? 0;
-          counters.set(key, index + 1);
-          return { ...next, targetHandle: `${port.id}:in:${index}` };
-        });
-
-        return { ...state, edges } as GraphStore;
+        return { ...state, nodes, edges } as GraphStore;
       },
       partialize: (state) => ({
-        projectName: state.projectName,
         nodes: state.nodes,
         edges: state.edges,
         edgeStyle: state.edgeStyle,

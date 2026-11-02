@@ -34,10 +34,10 @@ function PaletteItem({ def }: { def: NodeDef }) {
         <Icon size={13} strokeWidth={1.9} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[11.5px] text-zinc-300 group-hover:text-zinc-100">
+        <span className="block truncate text-[17px] text-zinc-300 group-hover:text-zinc-100">
           {def.label}
         </span>
-        <span className="mt-0.5 block truncate font-mono text-[8.5px] text-zinc-600">
+        <span className="mt-0.5 block truncate font-mono text-[12px] text-zinc-600">
           {describePorts(def)}
         </span>
       </span>
@@ -67,13 +67,13 @@ export function Palette() {
   }, [query]);
 
   return (
-    <aside className="flex w-[256px] shrink-0 flex-col border-r border-white/[0.06] bg-forge-900">
+    <aside className="flex w-[288px] shrink-0 flex-col border-r border-white/[0.06] bg-forge-900">
       <div className="px-3 pb-2 pt-3.5">
         <div className="flex items-center justify-between px-0.5">
-          <h2 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
+          <h2 className="text-[15px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
             Node library
           </h2>
-          <span className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[9px] text-zinc-500">
+          <span className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[13px] text-zinc-500">
             {NODE_DEFS.length}
           </span>
         </div>
@@ -87,7 +87,7 @@ export function Palette() {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search nodes…"
             spellCheck={false}
-            className="w-full rounded-lg border border-white/[0.07] bg-forge-950/60 py-1.5 pl-8 pr-2.5 text-[11px] text-zinc-300 placeholder:text-zinc-600 focus:border-amber-400/40 focus:outline-none focus:ring-1 focus:ring-amber-400/10"
+            className="w-full rounded-lg border border-white/[0.07] bg-forge-950/60 py-1.5 pl-8 pr-2.5 text-[16.5px] text-zinc-300 placeholder:text-zinc-600 focus:border-amber-400/40 focus:outline-none focus:ring-1 focus:ring-amber-400/10"
           />
         </div>
       </div>
@@ -102,10 +102,10 @@ export function Palette() {
             <section key={category} className="mt-3 first:mt-1">
               <div className="flex items-center gap-1.5 px-1.5 pb-1.5">
                 <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
-                <h3 className="text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                <h3 className="text-[13px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
                   {meta.label}
                 </h3>
-                <span className="ml-auto font-mono text-[9px] text-zinc-600">{defs.length}</span>
+                <span className="ml-auto font-mono text-[13px] text-zinc-600">{defs.length}</span>
               </div>
               <div className="space-y-0.5">
                 {defs.map((def) => (
@@ -117,13 +117,13 @@ export function Palette() {
         })}
 
         {filtered.length === 0 && (
-          <div className="mt-8 px-4 text-center text-[11px] leading-relaxed text-zinc-600">
+          <div className="mt-8 px-4 text-center text-[16.5px] leading-relaxed text-zinc-600">
             No nodes match “{query}”.
           </div>
         )}
       </div>
 
-      <div className="border-t border-white/[0.06] px-3.5 py-2.5 text-[9.5px] leading-relaxed text-zinc-600">
+      <div className="border-t border-white/[0.06] px-3.5 py-2.5 text-[13.5px] leading-relaxed text-zinc-600">
         Drag a node onto the canvas, or click to add it.
       </div>
     </aside>

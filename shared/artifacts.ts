@@ -1,4 +1,4 @@
-export type ArtifactKind = 'image' | 'pdf' | 'file';
+export type ArtifactKind = 'image' | 'pdf' | 'audio' | 'file';
 
 export interface ArtifactRef {
   id: string;
@@ -9,4 +9,5 @@ export interface ArtifactRef {
   width?: number;
   height?: number;
   pages?: number;
+  duration?: number;
 }

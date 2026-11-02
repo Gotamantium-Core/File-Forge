@@ -43,6 +43,7 @@ export async function saveArtifact(input: {
   width?: number;
   height?: number;
   pages?: number;
+  duration?: number;
 }): Promise<ArtifactRef> {
   const id = randomUUID();
   const dir = path.join(ARTIFACT_DIR, id);
@@ -58,6 +59,7 @@ export async function saveArtifact(input: {
   if (input.width !== undefined) ref.width = input.width;
   if (input.height !== undefined) ref.height = input.height;
   if (input.pages !== undefined) ref.pages = input.pages;
+  if (input.duration !== undefined) ref.duration = input.duration;
 
   await fs.writeFile(path.join(dir, 'blob'), input.buffer);
   await fs.writeFile(path.join(dir, 'meta.json'), JSON.stringify(ref, null, 2));

@@ -1,8 +1,8 @@
 import { Handle, Position } from '@xyflow/react';
-import { FileText } from 'lucide-react';
+import { FileText, Music } from 'lucide-react';
 import type { NodeProps } from '@xyflow/react';
 import { artifactThumbUrl } from '../lib/api';
-import { formatDuration } from '../lib/format';
+import { formatAudioDuration, formatDuration } from '../lib/format';
 import { getInputPorts, getOutputPorts } from '../lib/ports';
 import { useGraphStore } from '../store/useGraphStore';
 import { useRunStore } from '../store/useRunStore';
@@ -17,7 +17,7 @@ function PortRow({ port, side }: { port: PortDef; side: 'input' | 'output' }) {
 
   return (
     <div
-      className={`relative flex h-5 items-center ${isOutput ? 'justify-end text-right' : ''}`}
+      className={`relative flex h-6 items-center ${isOutput ? 'justify-end text-right' : ''}`}
     >
       {!isOutput && (
         <Handle
@@ -28,7 +28,7 @@ function PortRow({ port, side }: { port: PortDef; side: 'input' | 'output' }) {
           style={{ left: -12, background: color, borderColor: '#111118' }}
         />
       )}
-      <span className="max-w-full truncate text-[9.5px] text-zinc-400">
+      <span className="max-w-full truncate text-[13.5px] text-zinc-400">
         {port.label}
         {port.many && !isDynamic && (
           <span className="ml-1 tracking-tighter text-zinc-600">•••</span>
@@ -55,7 +55,7 @@ export function ForgeNodeView({ id, data, selected }: NodeProps<ForgeNode>) {
 
   if (!def) {
     return (
-      <div className="w-[232px] rounded-xl border border-dashed border-rose-400/40 bg-forge-850 px-3 py-2.5 text-[11px] text-rose-300">
+      <div className="w-[260px] rounded-xl border border-dashed border-rose-400/40 bg-forge-850 px-3 py-2.5 text-[16.5px] text-rose-300">
         Unknown node type: {data.defType}
       </div>
     );
@@ -79,12 +79,17 @@ export function ForgeNodeView({ id, data, selected }: NodeProps<ForgeNode>) {
             : { dot: 'bg-zinc-600', label: 'Ready' };
   const previews = def.type === 'image-input' ? data.artifacts ?? [] : [];
   const pdfs = def.type === 'pdf-input' ? data.artifacts ?? [] : [];
+  const audio = def.type === 'audio-input' ? data.artifacts ?? [] : [];
+  const audioDuration = audio.reduce(
+    (total, artifact) => total + (artifact.duration ?? 0),
+    0,
+  );
   const inputs = getInputPorts(def, { id, data }, edges);
   const outputs = getOutputPorts(def, { id, data }, edges);
 
   return (
     <div
-      className={`group relative w-[232px] rounded-xl border bg-forge-850 shadow-[0_18px_45px_-24px_rgba(0,0,0,0.95)] transition-colors ${
+      className={`group relative w-[260px] rounded-xl border bg-forge-850 shadow-[0_18px_45px_-24px_rgba(0,0,0,0.95)] transition-colors ${
         selected
           ? 'border-[rgb(var(--accent)/0.6)] ring-1 ring-[rgb(var(--accent)/0.25)]'
           : 'border-white/[0.07] hover:border-white/[0.15]'
@@ -98,11 +103,11 @@ export function ForgeNodeView({ id, data, selected }: NodeProps<ForgeNode>) {
           <Icon size={15} strokeWidth={1.9} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[12.5px] font-medium leading-tight text-zinc-100">
+          <div className="truncate text-[18px] font-medium leading-tight text-zinc-100">
             {def.label}
           </div>
           <div
-            className={`mt-1 text-[8.5px] font-semibold uppercase tracking-[0.16em] ${meta.text} opacity-80`}
+            className={`mt-1 text-[12px] font-semibold uppercase tracking-[0.16em] ${meta.text} opacity-80`}
           >
             {meta.label}
           </div>
@@ -114,11 +119,15 @@ export function ForgeNodeView({ id, data, selected }: NodeProps<ForgeNode>) {
       </div>
 
       {result?.status === 'error' && result.error ? (
-        <p className="line-clamp-2 px-3 pb-3 text-[10px] leading-[1.5] text-rose-300/90">
+        <p className="line-clamp-2 px-3 pb-3 text-[15px] leading-[1.5] text-rose-300/90">
           {result.error}
         </p>
       ) : (
-        <p className="line-clamp-2 px-3 pb-3 text-[10.5px] leading-[1.5] text-zinc-500">
+        <p
+          className={`px-3 pb-3 text-[16px] leading-[1.5] text-zinc-500 ${
+            def.type === 'audio-metadata' ? 'line-clamp-3' : 'line-clamp-2'
+          }`}
+        >
           {def.description}
         </p>
       )}
@@ -134,7 +143,7 @@ export function ForgeNodeView({ id, data, selected }: NodeProps<ForgeNode>) {
               className="h-8 w-8 rounded-md border border-white/10 bg-black/30 object-cover"
             />
           ))}
-          <span className="ml-auto font-mono text-[8.5px] text-zinc-600">
+          <span className="ml-auto font-mono text-[12px] text-zinc-600">
             {previews.length} image{previews.length === 1 ? '' : 's'}
           </span>
         </div>
@@ -143,12 +152,25 @@ export function ForgeNodeView({ id, data, selected }: NodeProps<ForgeNode>) {
       {pdfs.length > 0 && (
         <div className="flex items-center gap-2 border-t border-white/[0.06] px-3 py-2">
           <FileText size={14} className="shrink-0 text-rose-300" />
-          <span className="min-w-0 flex-1 truncate text-[9.5px] text-zinc-400">
+          <span className="min-w-0 flex-1 truncate text-[13.5px] text-zinc-400">
             {pdfs[0].name}
           </span>
-          <span className="shrink-0 font-mono text-[8.5px] text-zinc-600">
+          <span className="shrink-0 font-mono text-[12px] text-zinc-600">
             {pdfs.reduce((sum, pdf) => sum + (pdf.pages ?? 0), 0)} pg
             {pdfs.length > 1 ? ` · ${pdfs.length} files` : ''}
+          </span>
+        </div>
+      )}
+
+      {audio.length > 0 && (
+        <div className="flex items-center gap-2 border-t border-white/[0.06] px-3 py-2">
+          <Music size={14} className="shrink-0 text-purple-300" />
+          <span className="min-w-0 flex-1 truncate text-[13.5px] text-zinc-400">
+            {audio[0].name}
+          </span>
+          <span className="shrink-0 font-mono text-[12px] text-zinc-600">
+            {audioDuration > 0 ? formatAudioDuration(audioDuration) : 'audio'}
+            {audio.length > 1 ? ` · ${audio.length} files` : ''}
           </span>
         </div>
       )}
@@ -158,14 +180,14 @@ export function ForgeNodeView({ id, data, selected }: NodeProps<ForgeNode>) {
           {inputs.length > 0 ? (
             inputs.map((port) => <PortRow key={port.id} port={port} side="input" />)
           ) : (
-            <div className="h-5" />
+            <div className="h-6" />
           )}
         </div>
         <div className="space-y-0.5">
           {outputs.length > 0 ? (
             outputs.map((port) => <PortRow key={port.id} port={port} side="output" />)
           ) : (
-            <div className="h-5" />
+            <div className="h-6" />
           )}
         </div>
       </div>

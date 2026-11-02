@@ -9,11 +9,12 @@ const artifactSchema = z.object({
   id: z.string().min(1),
   name: z.string(),
   mime: z.string(),
-  kind: z.enum(['image', 'pdf', 'file']),
+  kind: z.enum(['image', 'pdf', 'audio', 'file']),
   size: z.number(),
   width: z.number().optional(),
   height: z.number().optional(),
   pages: z.number().optional(),
+  duration: z.number().optional(),
 });
 
 const nodeSchema = z.object({

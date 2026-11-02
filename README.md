@@ -22,10 +22,12 @@ File Forge is a visual, node-based file conversion studio. Build pipelines on a 
 | --- | --- | --- |
 | Input | **Image Input** | Load one or more images onto the pipeline. |
 | Input | **PDF Input** | Load one or more PDFs. |
-| Input | **Text Input** | Source plain text, Markdown, or HTML (parameters and conversion are not implemented yet). |
+| Input | **Audio Input** | Load MP3, FLAC, WAV, OGG, M4A, and other audio files. |
 | Convert | **Image to PDF** | Lay images onto PDF pages with size, orientation, fit, margin, and background options. |
 | Convert | **Convert Image** | Re-encode images to PNG, JPEG, or WebP with optional quality. |
-| Convert | **Document to PDF** | Render documents to paginated PDF (not implemented yet). |
+| Audio tools | **Audio Metadata** | Edit tags and optionally embed artwork from the Artwork input. |
+| Audio tools | **Batch Metadata** | Apply shared album tags, auto-number tracks in connection order, optionally embed one cover, and output a single ZIP. |
+| Audio tools | **Convert Audio** | Re-encode between MP3, FLAC, WAV, OGG, and M4A. |
 | PDF tools | **Merge PDFs** | Combine multiple PDFs in connection order. |
 | PDF tools | **Split PDF** | Split into fixed-size chunks or custom page-range parts. |
 | PDF tools | **Rotate PDF** | Rotate all or selected pages by 90°, 180°, or 270°. |
@@ -113,24 +115,24 @@ The Express API listens on `127.0.0.1:3001` by default (`PORT` overrides it).
 | Method | Route | Description |
 | --- | --- | --- |
 | `GET` | `/api/health` | Health check. |
-| `POST` | `/api/uploads?kind=image\|pdf\|auto` | Upload up to 20 files (50 MB each) and register them as artifacts. |
+| `POST` | `/api/uploads?kind=image\|pdf\|audio\|auto` | Upload up to 20 files (50 MB each) and register them as artifacts. |
 | `POST` | `/api/runs` | Execute a pipeline from a JSON graph of nodes and edges. |
 | `GET` | `/api/artifacts/:id/download` | Download an artifact with its original filename. |
-| `GET` | `/api/artifacts/:id/thumb` | Get a cached PNG thumbnail for an image artifact. |
+| `GET` | `/api/artifacts/:id/thumb` | Get a cached PNG thumbnail for an image or audio artifact (embedded cover art). |
 
 Uploads and generated files are stored under `data/artifacts` and excluded from git. Artifact IDs are validated UUIDs before any filesystem access.
 
 ## Tech stack
 
 - **Frontend:** React 19, `@xyflow/react` (React Flow), Zustand, Tailwind CSS 4, Vite 7, Lucide icons
-- **Backend:** Express 5, Multer, Zod, `pdf-lib`, `sharp`, `tsx`
+- **Backend:** Express 5, Multer, Zod, `pdf-lib`, `sharp`, `ffmpeg-static`, `music-metadata`, `jszip`, `tsx`
 - **Language:** TypeScript, with shared node and artifact contracts between `src/`, `server/`, and `shared/`
 
 ## Project structure
 
 ```
 src/        React UI, canvas, nodes, stores, API client
-server/     Express API, pipeline executor, image/PDF/storage libraries
+server/     Express API, pipeline executor, image/audio/PDF/storage libraries
 shared/     Node specifications, port types, page expression parsing
 data/       Uploaded and generated artifacts (gitignored)
 dist/       Production build output (gitignored)
@@ -140,5 +142,7 @@ dist/       Production build output (gitignored)
 
 - Uploads: up to 20 files per request, 50 MB per file.
 - Graph: up to 200 nodes and 1,000 edges per run.
-- Image, PDF, and image-to-PDF nodes are fully implemented.
-- **Text Input** and **Document to PDF** are visible placeholders; their handlers are not implemented yet.
+- Image, PDF, audio, and image-to-PDF nodes are fully implemented.
+- Audio conversion uses the bundled `ffmpeg-static` binary; metadata writing preserves existing tags and leaves blank fields unchanged.
+- Album art is supplied by connecting an image to a metadata node's Artwork input. Embedding works for MP3, FLAC, and M4A; other containers keep text tags only.
+- Batch Metadata outputs one ZIP named after the album, or `tracks.zip` when the album is blank.

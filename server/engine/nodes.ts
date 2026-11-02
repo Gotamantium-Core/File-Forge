@@ -1,7 +1,17 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import JSZip from 'jszip';
 import { z } from 'zod';
 import type { ArtifactRef } from '../../shared/artifacts';
+import {
+  convertAudio,
+  writeAudioMetadata,
+} from '../lib/audio';
+import type {
+  ArtworkInput,
+  AudioFormat,
+  AudioMetadata,
+} from '../lib/audio';
 import { convertImage } from '../lib/images';
 import { buildPdfFromImages } from '../lib/pdf';
 import {
@@ -65,6 +75,31 @@ const pageOrderSchema = z.object({
   order: z.string().max(5000),
 });
 
+const convertAudioSchema = z.object({
+  format: z.enum(['mp3', 'flac', 'wav', 'ogg', 'm4a']).default('mp3'),
+  bitrate: z.enum(['128k', '192k', '256k', '320k']).default('192k'),
+});
+
+const batchAudioMetadataSchema = z.object({
+  album: z.string().max(300).default(''),
+  artist: z.string().max(300).default(''),
+  albumArtist: z.string().max(300).default(''),
+  year: z.string().max(20).default(''),
+  genre: z.string().max(100).default(''),
+  comment: z.string().max(1000).default(''),
+});
+
+const audioMetadataSchema = z.object({
+  title: z.string().max(300).default(''),
+  artist: z.string().max(300).default(''),
+  album: z.string().max(300).default(''),
+  albumArtist: z.string().max(300).default(''),
+  year: z.string().max(20).default(''),
+  genre: z.string().max(100).default(''),
+  track: z.string().max(20).default(''),
+  comment: z.string().max(1000).default(''),
+});
+
 function toRef(artifact: StoredArtifact): ArtifactRef {
   const ref: ArtifactRef = {
     id: artifact.id,
@@ -76,6 +111,7 @@ function toRef(artifact: StoredArtifact): ArtifactRef {
   if (artifact.width !== undefined) ref.width = artifact.width;
   if (artifact.height !== undefined) ref.height = artifact.height;
   if (artifact.pages !== undefined) ref.pages = artifact.pages;
+  if (artifact.duration !== undefined) ref.duration = artifact.duration;
   return ref;
 }
 
@@ -97,6 +133,31 @@ async function loadPdfs(refs: ArtifactRef[]): Promise<StoredArtifact[]> {
     }
   }
   return artifacts;
+}
+
+async function loadAudio(refs: ArtifactRef[]): Promise<StoredArtifact[]> {
+  const artifacts = await Promise.all(refs.map((ref) => loadArtifact(ref.id)));
+  for (const artifact of artifacts) {
+    if (artifact.kind !== 'audio') {
+      throw new NodeExecutionError(`"${artifact.name}" is not an audio file.`);
+    }
+  }
+  return artifacts;
+}
+
+async function loadArtwork(refs: ArtifactRef[]): Promise<ArtworkInput | undefined> {
+  const ref = refs[0];
+  if (!ref) return undefined;
+
+  const artifact = await loadArtifact(ref.id);
+  if (artifact.kind !== 'image') {
+    throw new NodeExecutionError('Cover art must be an image file.');
+  }
+
+  return {
+    buffer: await fs.readFile(artifact.filePath),
+    mime: artifact.mime,
+  };
 }
 
 async function readPdfInput(artifact: StoredArtifact): Promise<PdfInput> {
@@ -130,6 +191,166 @@ const imageInput: NodeHandler = async ({ node }) => {
 
   const artifacts = await loadImages(refs);
   return artifacts.map(toRef);
+};
+
+const audioInput: NodeHandler = async ({ node }) => {
+  const refs = node.data.artifacts ?? [];
+  if (refs.length === 0) {
+    throw new NodeExecutionError('No audio selected. Open the inspector and add audio files.');
+  }
+
+  const artifacts = await loadAudio(refs);
+  return artifacts.map(toRef);
+};
+
+const convertAudioNode: NodeHandler = async ({ inputs, params }) => {
+  const parsed = convertAudioSchema.safeParse(params);
+  if (!parsed.success) {
+    throw new NodeExecutionError(
+      `Invalid settings: ${parsed.error.issues.map((issue) => issue.message).join(', ')}`,
+    );
+  }
+
+  const refs = inputs.audio ?? [];
+  if (refs.length === 0) {
+    throw new NodeExecutionError('Connect at least one audio file to convert.');
+  }
+
+  const artifacts = await loadAudio(refs);
+  const used = new Set<string>();
+  const output: ArtifactRef[] = [];
+
+  for (const artifact of artifacts) {
+    const converted = await convertAudio(
+      await fs.readFile(artifact.filePath),
+      parsed.data.format as AudioFormat,
+      parsed.data.bitrate,
+      artifact.name,
+      artifact.mime,
+    );
+    const name = uniqueName(baseName(artifact.name), converted.extension, used);
+
+    output.push(
+      await saveArtifact({
+        buffer: converted.buffer,
+        name,
+        mime: converted.mime,
+        kind: 'audio',
+        duration: converted.duration,
+      }),
+    );
+  }
+
+  return output;
+};
+
+const audioMetadataNode: NodeHandler = async ({ inputs, params }) => {
+  const parsed = audioMetadataSchema.safeParse(params);
+  if (!parsed.success) {
+    throw new NodeExecutionError(
+      `Invalid settings: ${parsed.error.issues.map((issue) => issue.message).join(', ')}`,
+    );
+  }
+
+  const refs = inputs.audio ?? [];
+  if (refs.length === 0) {
+    throw new NodeExecutionError('Connect at least one audio file to edit.');
+  }
+
+  const artifacts = await loadAudio(refs);
+  const artwork = await loadArtwork(inputs.artwork ?? []);
+
+  const metadata: AudioMetadata = {
+    title: parsed.data.title,
+    artist: parsed.data.artist,
+    album: parsed.data.album,
+    albumArtist: parsed.data.albumArtist,
+    year: parsed.data.year,
+    genre: parsed.data.genre,
+    track: parsed.data.track,
+    comment: parsed.data.comment,
+  };
+
+  const used = new Set<string>();
+  const output: ArtifactRef[] = [];
+
+  for (const artifact of artifacts) {
+    const updated = await writeAudioMetadata(
+      await fs.readFile(artifact.filePath),
+      artifact.name,
+      metadata,
+      artwork,
+      artifact.mime,
+    );
+    const name = uniqueName(baseName(artifact.name), updated.extension, used);
+
+    output.push(
+      await saveArtifact({
+        buffer: updated.buffer,
+        name,
+        mime: updated.mime,
+        kind: 'audio',
+        duration: updated.duration,
+      }),
+    );
+  }
+
+  return output;
+};
+
+const batchAudioMetadataNode: NodeHandler = async ({ inputs, params }) => {
+  const parsed = batchAudioMetadataSchema.safeParse(params);
+  if (!parsed.success) {
+    throw new NodeExecutionError(
+      `Invalid settings: ${parsed.error.issues.map((issue) => issue.message).join(', ')}`,
+    );
+  }
+
+  const refs = inputs.audio ?? [];
+  if (refs.length === 0) {
+    throw new NodeExecutionError('Connect at least one audio file to tag.');
+  }
+
+  const artifacts = await loadAudio(refs);
+  const artwork = await loadArtwork(inputs.artwork ?? []);
+  const used = new Set<string>();
+  const zip = new JSZip();
+
+  for (const [index, artifact] of artifacts.entries()) {
+    const updated = await writeAudioMetadata(
+      await fs.readFile(artifact.filePath),
+      artifact.name,
+      {
+        album: parsed.data.album,
+        artist: parsed.data.artist,
+        albumArtist: parsed.data.albumArtist,
+        year: parsed.data.year,
+        genre: parsed.data.genre,
+        comment: parsed.data.comment,
+        track: String(index + 1),
+      },
+      artwork,
+      artifact.mime,
+    );
+    const name = uniqueName(baseName(artifact.name), updated.extension, used);
+    zip.file(name, updated.buffer);
+  }
+
+  const buffer = await zip.generateAsync({
+    type: 'nodebuffer',
+    compression: 'DEFLATE',
+    compressionOptions: { level: 6 },
+  });
+  const album = parsed.data.album.trim();
+
+  return [
+    await saveArtifact({
+      buffer,
+      name: album ? `${album}.zip` : 'tracks.zip',
+      mime: 'application/zip',
+      kind: 'file',
+    }),
+  ];
 };
 
 const imageToPdf: NodeHandler = async ({ inputs, params }) => {
@@ -247,6 +468,7 @@ const renameFiles: NodeHandler = async ({ inputs, params }) => {
         width: artifact.width,
         height: artifact.height,
         pages: artifact.pages,
+        duration: artifact.duration,
       }),
     );
   }
@@ -472,6 +694,10 @@ const output: NodeHandler = async ({ inputs }) => {
 };
 
 export const NODE_HANDLERS: Record<string, NodeHandler> = {
+  'audio-input': audioInput,
+  'audio-metadata': audioMetadataNode,
+  'batch-audio-metadata': batchAudioMetadataNode,
+  'convert-audio': convertAudioNode,
   'image-input': imageInput,
   'image-to-pdf': imageToPdf,
   'convert-image': convertImages,

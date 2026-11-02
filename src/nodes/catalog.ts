@@ -1,4 +1,6 @@
 import {
+  AudioLines,
+  AudioWaveform,
   Download,
   FileImage,
   FileMinus,
@@ -6,14 +8,14 @@ import {
   FileQuestion,
   FileSearch,
   FileText,
-  FileType2,
   GitMerge,
   Image as ImageIcon,
+  ListMusic,
   ListOrdered,
   RefreshCw,
   RotateCw,
   Scissors,
-  Type,
+  Tags,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { describePorts, getNodeSpec, NODE_SPECS } from '../../shared/nodes';
@@ -30,7 +32,7 @@ export interface CategoryMeta {
   bar: string;
 }
 
-export const CATEGORY_ORDER: NodeCategory[] = ['input', 'convert', 'pdf', 'output'];
+export const CATEGORY_ORDER: NodeCategory[] = ['input', 'convert', 'audio', 'pdf', 'output'];
 
 export const CATEGORY_META: Record<NodeCategory, CategoryMeta> = {
   input: {
@@ -48,6 +50,14 @@ export const CATEGORY_META: Record<NodeCategory, CategoryMeta> = {
     tint: 'bg-amber-400/10',
     text: 'text-amber-300',
     bar: 'bg-amber-400/70',
+  },
+  audio: {
+    label: 'Audio tools',
+    hex: '#c084fc',
+    dot: 'bg-purple-400',
+    tint: 'bg-purple-400/10',
+    text: 'text-purple-300',
+    bar: 'bg-purple-400/70',
   },
   pdf: {
     label: 'PDF tools',
@@ -70,11 +80,13 @@ export const CATEGORY_META: Record<NodeCategory, CategoryMeta> = {
 const ICONS: Record<string, LucideIcon> = {
   'image-input': ImageIcon,
   'pdf-input': FileText,
-  'text-input': Type,
+  'audio-input': AudioLines,
+  'audio-metadata': Tags,
+  'batch-audio-metadata': ListMusic,
+  'convert-audio': AudioWaveform,
   'image-to-pdf': FileImage,
   'convert-image': RefreshCw,
   rename: FilePenLine,
-  'document-to-pdf': FileType2,
   'merge-pdfs': GitMerge,
   'split-pdf': Scissors,
   'rotate-pdf': RotateCw,

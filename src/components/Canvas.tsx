@@ -10,6 +10,7 @@ import {
 import type { Connection, Edge, NodeTypes } from '@xyflow/react';
 import { MousePointer2, Workflow } from 'lucide-react';
 import { isConnectionAllowed } from '../lib/connections';
+import { GRID_SIZE } from '../lib/grid';
 import { getOutputPorts } from '../lib/ports';
 import { CATEGORY_META, getNodeDef } from '../nodes/catalog';
 import { ForgeNodeView } from '../nodes/ForgeNodeView';
@@ -36,11 +37,11 @@ function EmptyState() {
         <div className="mx-auto grid h-11 w-11 place-items-center rounded-xl border border-white/[0.06] bg-forge-850 text-amber-300/80">
           <Workflow size={20} strokeWidth={1.8} />
         </div>
-        <h2 className="mt-3 text-[13px] font-medium text-zinc-200">Build your first pipeline</h2>
-        <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
+        <h2 className="mt-3 text-[18px] font-medium text-zinc-200">Build your first pipeline</h2>
+        <p className="mt-1.5 text-[16.5px] leading-relaxed text-zinc-500">
           Drag an input from the node library, then connect it to a converter and an output.
         </p>
-        <div className="mt-3 flex items-center justify-center gap-1.5 text-[10px] text-zinc-600">
+        <div className="mt-3 flex items-center justify-center gap-1.5 text-[15px] text-zinc-600">
           <MousePointer2 size={11} />
           Drag onto the canvas or click to add
         </div>
@@ -99,7 +100,7 @@ export function Canvas() {
       if (!defType) return;
 
       const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-      addNode(defType, { x: position.x - 116, y: position.y - 28 });
+      addNode(defType, { x: position.x - 130, y: position.y - 28 });
     },
     [addNode, screenToFlowPosition],
   );
@@ -115,6 +116,8 @@ export function Canvas() {
         onPaneClick={clearSelection}
         nodeTypes={nodeTypes}
         isValidConnection={isValidConnection}
+        snapToGrid
+        snapGrid={[GRID_SIZE, GRID_SIZE]}
         fitView={fitOnMount}
         fitViewOptions={fitViewOptions}
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}

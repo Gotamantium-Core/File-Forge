@@ -19,7 +19,7 @@ async function readError(response: Response): Promise<string> {
   return `Request failed (${response.status}).`;
 }
 
-export type UploadKind = 'image' | 'pdf' | 'auto';
+export type UploadKind = 'image' | 'pdf' | 'audio' | 'auto';
 
 export async function uploadFiles(
   files: File[],

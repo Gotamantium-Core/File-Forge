@@ -157,7 +157,9 @@ export async function executeGraph(
       continue;
     }
 
-    const missing = spec.inputs.filter((port) => !(inputs[port.id]?.length));
+    const missing = spec.inputs.filter(
+      (port) => !port.optional && !(inputs[port.id]?.length),
+    );
     if (missing.length > 0) {
       results[nodeId] = {
         status: 'error',

@@ -1,14 +1,15 @@
 import type { ArtifactRef } from './artifacts';
 
-export type PortType = 'image' | 'pdf' | 'doc' | 'any';
+export type PortType = 'image' | 'pdf' | 'audio' | 'any';
 
-export type NodeCategory = 'input' | 'convert' | 'pdf' | 'output';
+export type NodeCategory = 'input' | 'convert' | 'audio' | 'pdf' | 'output';
 
 export interface PortDef {
   id: string;
   label: string;
   type: PortType;
   many?: boolean;
+  optional?: boolean;
   artifactId?: string;
   index?: number;
 }
@@ -25,7 +26,7 @@ export interface NodeSpec {
 export const PORT_COLORS: Record<PortType, string> = {
   image: '#34d399',
   pdf: '#fb7185',
-  doc: '#38bdf8',
+  audio: '#c084fc',
   any: '#fbbf24',
 };
 
@@ -33,7 +34,7 @@ export function portTypeLabel(type: PortType): string {
   const labels: Record<PortType, string> = {
     image: 'Image',
     pdf: 'PDF',
-    doc: 'Document',
+    audio: 'Audio',
     any: 'Any',
   };
   return labels[type];
@@ -71,12 +72,42 @@ export const NODE_SPECS: NodeSpec[] = [
     outputs: [{ id: 'pdfs', label: 'PDFs', type: 'pdf', many: true }],
   },
   {
-    type: 'text-input',
-    label: 'Text Input',
+    type: 'audio-input',
+    label: 'Audio Input',
     category: 'input',
-    description: 'Paste plain text, Markdown or HTML as a source document.',
+    description: 'Load MP3, FLAC, WAV, OGG or other audio files into the pipeline.',
     inputs: [],
-    outputs: [{ id: 'doc', label: 'Document', type: 'doc' }],
+    outputs: [{ id: 'audio', label: 'Audio', type: 'audio', many: true }],
+  },
+  {
+    type: 'audio-metadata',
+    label: 'Audio Metadata',
+    category: 'audio',
+    description: 'Change title, artist, album and other tags, with optional cover art.',
+    inputs: [
+      { id: 'audio', label: 'Audio', type: 'audio', many: true },
+      { id: 'artwork', label: 'Artwork', type: 'image', optional: true },
+    ],
+    outputs: [{ id: 'audio', label: 'Audio', type: 'audio', many: true }],
+  },
+  {
+    type: 'batch-audio-metadata',
+    label: 'Batch Metadata',
+    category: 'audio',
+    description: 'Tag tracks in connection order and bundle them as one ZIP.',
+    inputs: [
+      { id: 'audio', label: 'Audio', type: 'audio', many: true },
+      { id: 'artwork', label: 'Artwork', type: 'image', optional: true },
+    ],
+    outputs: [{ id: 'zip', label: 'ZIP', type: 'any' }],
+  },
+  {
+    type: 'convert-audio',
+    label: 'Convert Audio',
+    category: 'audio',
+    description: 'Re-encode audio between MP3, FLAC, WAV, OGG and M4A.',
+    inputs: [{ id: 'audio', label: 'Audio', type: 'audio', many: true }],
+    outputs: [{ id: 'audio', label: 'Audio', type: 'audio', many: true }],
   },
   {
     type: 'image-to-pdf',
@@ -101,14 +132,6 @@ export const NODE_SPECS: NodeSpec[] = [
     description: 'Give files a new name before continuing down the pipeline.',
     inputs: [{ id: 'files', label: 'Files', type: 'any', many: true }],
     outputs: [{ id: 'files', label: 'Files', type: 'any', many: true }],
-  },
-  {
-    type: 'document-to-pdf',
-    label: 'Document to PDF',
-    category: 'convert',
-    description: 'Render text, Markdown or HTML into a paginated PDF.',
-    inputs: [{ id: 'doc', label: 'Document', type: 'doc' }],
-    outputs: [{ id: 'pdf', label: 'PDF', type: 'pdf' }],
   },
   {
     type: 'merge-pdfs',
@@ -171,6 +194,7 @@ export const NODE_SPECS: NodeSpec[] = [
 const FILE_INPUT_TYPES: Record<string, { portId: string; type: PortType }> = {
   'image-input': { portId: 'images', type: 'image' },
   'pdf-input': { portId: 'pdfs', type: 'pdf' },
+  'audio-input': { portId: 'audio', type: 'audio' },
 };
 
 export function isPortHandle(portId: string, handle?: string | null): boolean {
@@ -292,6 +316,28 @@ export function getNodeSpec(type: string): NodeSpec | undefined {
 }
 
 export const DEFAULT_PARAMS: Record<string, Record<string, unknown>> = {
+  'audio-metadata': {
+    title: '',
+    artist: '',
+    album: '',
+    albumArtist: '',
+    year: '',
+    genre: '',
+    track: '',
+    comment: '',
+  },
+  'batch-audio-metadata': {
+    album: '',
+    artist: '',
+    albumArtist: '',
+    year: '',
+    genre: '',
+    comment: '',
+  },
+  'convert-audio': {
+    format: 'mp3',
+    bitrate: '192k',
+  },
   'image-to-pdf': {
     pageSize: 'fit',
     orientation: 'auto',

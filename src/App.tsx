@@ -18,6 +18,7 @@ const ACCENTS: Record<AccentColor, { accent: string; strong: string }> = {
 
 export default function App() {
   const accentColor = useGraphStore((state) => state.accentColor);
+  const snapAllNodes = useGraphStore((state) => state.snapAllNodes);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -25,6 +26,10 @@ export default function App() {
     root.style.setProperty('--accent', accent.accent);
     root.style.setProperty('--accent-strong', accent.strong);
   }, [accentColor]);
+
+  useEffect(() => {
+    snapAllNodes();
+  }, [snapAllNodes]);
 
   return (
     <ReactFlowProvider>

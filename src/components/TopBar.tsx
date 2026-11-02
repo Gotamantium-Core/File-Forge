@@ -30,8 +30,6 @@ const ACCENTS: { value: AccentColor; label: string; color: string }[] = [
 ];
 
 export function TopBar() {
-  const projectName = useGraphStore((state) => state.projectName);
-  const setProjectName = useGraphStore((state) => state.setProjectName);
   const nodeCount = useGraphStore((state) => state.nodes.length);
   const clearGraph = useGraphStore((state) => state.clearGraph);
   const edgeStyle = useGraphStore((state) => state.edgeStyle);
@@ -61,40 +59,21 @@ export function TopBar() {
   };
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] bg-forge-900/80 px-3.5 backdrop-blur sm:gap-4">
+    <header className="flex h-16 shrink-0 items-center gap-3 border-b border-white/[0.06] bg-forge-900/80 px-3.5 backdrop-blur sm:gap-4">
       <div className="flex shrink-0 items-center gap-2.5">
         <div className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-amber-400 to-orange-600 text-forge-950 shadow-lg shadow-amber-500/20">
           <Hammer size={16} strokeWidth={2.4} />
         </div>
         <div className="leading-none">
-          <div className="text-[13px] font-semibold tracking-tight text-zinc-100">File Forge</div>
-          <div className="mt-1 text-[8px] font-medium uppercase tracking-[0.22em] text-zinc-500">
+          <div className="text-[18px] font-semibold tracking-tight text-zinc-100">File Forge</div>
+          <div className="mt-1 text-[11px] font-medium uppercase tracking-[0.22em] text-zinc-500">
             Node converter
           </div>
         </div>
       </div>
 
-      <div className="h-6 w-px shrink-0 bg-white/[0.06]" />
-
-      <label className="flex min-w-0 items-center gap-2">
-        <span className="hidden text-[9px] uppercase tracking-[0.14em] text-zinc-600 md:inline">
-          Project
-        </span>
-        <input
-          value={projectName}
-          onChange={(event) => setProjectName(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') event.currentTarget.blur();
-          }}
-          maxLength={64}
-          spellCheck={false}
-          aria-label="Project name"
-          className="w-32 truncate rounded-md border border-transparent bg-transparent px-2 py-1 text-[12px] text-zinc-200 transition-colors hover:border-white/10 focus:border-amber-400/40 focus:bg-forge-850 focus:outline-none sm:w-52"
-        />
-      </label>
-
       <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-2.5">
-        <div className="hidden items-center gap-1.5 text-[10.5px] sm:flex">
+        <div className="hidden items-center gap-1.5 text-[16px] sm:flex">
           {runStatus === 'idle' && (
             <>
               <CheckCircle2 size={12} className="text-emerald-400/80" />
@@ -179,7 +158,7 @@ export function TopBar() {
           type="button"
           onClick={handleClear}
           disabled={nodeCount === 0}
-          className="flex items-center gap-1.5 rounded-lg border border-transparent px-2 py-1.5 text-[11px] text-zinc-400 transition-colors hover:border-white/[0.08] hover:bg-white/[0.03] hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-35"
+          className="flex items-center gap-1.5 rounded-lg border border-transparent px-2 py-1.5 text-[16.5px] text-zinc-400 transition-colors hover:border-white/[0.08] hover:bg-white/[0.03] hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-35"
         >
           <Trash2 size={12} />
           <span className="hidden md:inline">Clear</span>
@@ -196,7 +175,7 @@ export function TopBar() {
                 ? 'The pipeline is already running.'
                 : 'Run the pipeline'
           }
-          className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium ring-1 ring-inset transition-colors ${
+          className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[16.5px] font-medium ring-1 ring-inset transition-colors ${
             nodeCount === 0 || isRunning
               ? 'cursor-not-allowed bg-[rgb(var(--accent)/0.1)] text-[rgb(var(--accent)/0.45)] ring-[rgb(var(--accent)/0.12)]'
               : 'bg-[rgb(var(--accent)/0.16)] text-[rgb(var(--accent))] ring-[rgb(var(--accent)/0.28)] hover:bg-[rgb(var(--accent)/0.26)]'

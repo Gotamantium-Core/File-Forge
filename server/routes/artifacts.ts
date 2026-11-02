@@ -3,6 +3,12 @@ import path from 'node:path';
 import { Router } from 'express';
 import multer from 'multer';
 import type { ArtifactRef } from '../../shared/artifacts';
+import {
+  AudioError,
+  extractAudioCover,
+  inspectAudio,
+  looksLikeAudio,
+} from '../lib/audio';
 import { ImageError, createThumbnail, inspectImage } from '../lib/images';
 import { inspectPdf, looksLikePdf } from '../lib/pdfs';
 import { artifactDir, loadArtifact, saveArtifact } from '../lib/storage';
@@ -34,8 +40,13 @@ artifactsRouter.post('/uploads', upload.array('files', 20), async (req, res) => 
   }
 
   const requested = typeof req.query.kind === 'string' ? req.query.kind : 'auto';
-  if (requested !== 'auto' && requested !== 'image' && requested !== 'pdf') {
-    res.status(400).json({ error: 'Upload kind must be image, pdf or auto.' });
+  if (
+    requested !== 'auto' &&
+    requested !== 'image' &&
+    requested !== 'pdf' &&
+    requested !== 'audio'
+  ) {
+    res.status(400).json({ error: 'Upload kind must be image, pdf, audio or auto.' });
     return;
   }
 
@@ -45,11 +56,23 @@ artifactsRouter.post('/uploads', upload.array('files', 20), async (req, res) => 
     const isPdf =
       requested === 'pdf' ||
       (requested === 'auto' && looksLikePdf(file.buffer));
+    const isAudio =
+      !isPdf &&
+      (requested === 'audio' ||
+        (requested === 'auto' && looksLikeAudio(file.buffer)));
 
     if (requested === 'image' && looksLikePdf(file.buffer)) {
       throw new ImageError(
         'This is a PDF. Add it to a PDF Input node instead.',
       );
+    }
+    if (requested === 'image' && looksLikeAudio(file.buffer)) {
+      throw new ImageError(
+        'This is an audio file. Add it to an Audio Input node instead.',
+      );
+    }
+    if (requested === 'audio' && !looksLikeAudio(file.buffer)) {
+      throw new AudioError('This file is not a supported audio file.');
     }
 
     if (isPdf) {
@@ -61,6 +84,18 @@ artifactsRouter.post('/uploads', upload.array('files', 20), async (req, res) => 
           mime: 'application/pdf',
           kind: 'pdf',
           pages: info.pages,
+        }),
+      );
+    } else if (isAudio) {
+      const mimeType = file.mimetype.startsWith('audio/') ? file.mimetype : undefined;
+      const info = await inspectAudio(file.buffer, file.originalname, mimeType);
+      artifacts.push(
+        await saveArtifact({
+          buffer: file.buffer,
+          name: file.originalname,
+          mime: info.mime,
+          kind: 'audio',
+          duration: info.duration,
         }),
       );
     } else {
@@ -91,7 +126,7 @@ artifactsRouter.get('/artifacts/:id/download', async (req, res) => {
 artifactsRouter.get('/artifacts/:id/thumb', async (req, res) => {
   const artifact = await loadArtifact(req.params.id);
 
-  if (artifact.kind !== 'image') {
+  if (artifact.kind !== 'image' && artifact.kind !== 'audio') {
     res.status(415).json({ error: 'This artifact has no image thumbnail.' });
     return;
   }
@@ -102,7 +137,15 @@ artifactsRouter.get('/artifacts/:id/thumb', async (req, res) => {
     await fs.access(thumbnailPath);
   } catch {
     const buffer = await fs.readFile(artifact.filePath);
-    const thumbnail = await createThumbnail(buffer);
+    const cover =
+      artifact.kind === 'audio'
+        ? await extractAudioCover(buffer, artifact.mime)
+        : { buffer, mime: artifact.mime };
+    if (!cover) {
+      res.status(415).json({ error: 'This audio file has no cover art.' });
+      return;
+    }
+    const thumbnail = await createThumbnail(cover.buffer);
     await fs.writeFile(thumbnailPath, thumbnail);
   }
 
